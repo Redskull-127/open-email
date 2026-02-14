@@ -2,7 +2,16 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-    title: "Open Email Editor — Demo",
+    icons: {
+        icon: "/logo.png",
+    },
+    openGraph: {
+        title: "Open Email Editor",
+        description:
+            "Open-source visual email editor built on React Email with shadcn-style customizable components",
+        images: "/logo.png",
+    },
+    title: "Open Email Editor",
     description:
         "Open-source visual email editor built on React Email with shadcn-style customizable components",
 };

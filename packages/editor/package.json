@@ -1,0 +1,60 @@
+{
+  "name": "@open-email/editor",
+  "version": "0.1.0",
+  "description": "Open-source visual email editor built on React Email — shadcn-style customizable components",
+  "keywords": ["react", "email", "editor", "react-email", "template", "builder"],
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/open-email/editor.git"
+  },
+  "author": "Open Email Team",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0",
+    "@react-email/components": ">=0.0.20",
+    "@react-email/render": ">=1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "tsup": "^8.3.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@react-email/components": "^0.0.31",
+    "@react-email/render": "^1.0.3",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1"
+  },
+  "dependencies": {
+    "nanoid": "^5.0.9"
+  }
+}

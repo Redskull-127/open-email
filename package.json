@@ -1,0 +1,16 @@
+{
+  "name": "open-email",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/demo",
+    "build": "npm run build --workspace=packages/editor && npm run build --workspace=apps/demo",
+    "build:editor": "npm run build --workspace=packages/editor"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

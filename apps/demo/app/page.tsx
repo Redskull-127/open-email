@@ -1,0 +1,221 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import {
+    EmailEditor,
+    createNode,
+    type EmailDocument,
+} from "@open-email/editor";
+import "@open-email/editor/styles.css";
+
+/** A sample email template to start with */
+function createSampleDocument(): EmailDocument {
+    return {
+        version: 1,
+        meta: {
+            title: "Welcome Email",
+            subject: "Welcome to Open Email!",
+            previewText: "Check out our open-source email editor",
+        },
+        body: createNode("container", { maxWidth: "600px", style: { backgroundColor: "#ffffff", padding: "0" } }, [
+            // Header
+            createNode("section", { style: { backgroundColor: "#5046e5", padding: "32px 24px", borderRadius: "8px 8px 0 0" } }, [
+                createNode("heading", {
+                    content: "✉️ Open Email Editor",
+                    as: "h1",
+                    style: { color: "#ffffff", textAlign: "center", fontSize: "28px" },
+                }),
+                createNode("text", {
+                    content: "Build beautiful emails with React Email components",
+                    style: { color: "#c7d2fe", textAlign: "center", fontSize: "16px", marginTop: "8px" },
+                }),
+            ]),
+
+            // Hero Image
+            createNode("section", { style: { padding: "0" } }, [
+                createNode("image", {
+                    src: "https://placehold.co/600x200/f0f0ff/5046e5?text=Email+Template+Preview",
+                    alt: "Email template preview",
+                    width: 600,
+                }),
+            ]),
+
+            // Content
+            createNode("section", { style: { padding: "32px 24px" } }, [
+                createNode("heading", {
+                    content: "Welcome aboard! 🎉",
+                    as: "h2",
+                    style: { fontSize: "22px", color: "#111827" },
+                }),
+                createNode("text", {
+                    content:
+                        "Thanks for trying out Open Email Editor — the open-source, shadcn-style email editor built on top of React Email. This editor gives you full control over your email templates with a visual builder and code editor.",
+                    style: { fontSize: "15px", lineHeight: "1.7", color: "#374151", marginTop: "12px" },
+                }),
+            ]),
+
+            // Features row
+            createNode("section", { style: { padding: "0 24px 24px" } }, [
+                createNode("row", {}, [
+                    createNode("column", { style: { padding: "12px", backgroundColor: "#f8fafc", borderRadius: "8px" } }, [
+                        createNode("heading", { content: "📦 Components", as: "h3", style: { fontSize: "16px" } }),
+                        createNode("text", {
+                            content: "All React Email components at your fingertips",
+                            style: { fontSize: "13px", color: "#64748b" },
+                        }),
+                    ]),
+                    createNode("column", { style: { padding: "12px", backgroundColor: "#f8fafc", borderRadius: "8px" } }, [
+                        createNode("heading", { content: "🎨 Customizable", as: "h3", style: { fontSize: "16px" } }),
+                        createNode("text", {
+                            content: "shadcn-style — override everything via props or CSS",
+                            style: { fontSize: "13px", color: "#64748b" },
+                        }),
+                    ]),
+                ]),
+            ]),
+
+            // CTA
+            createNode("section", { style: { padding: "8px 24px 32px", textAlign: "center" } }, [
+                createNode("button", {
+                    text: "Get Started →",
+                    href: "https://github.com",
+                    backgroundColor: "#5046e5",
+                    color: "#ffffff",
+                    borderRadius: "8px",
+                    padding: "14px 32px",
+                }),
+            ]),
+
+            // Divider
+            createNode("hr", { borderColor: "#e5e7eb", borderWidth: "1px" }),
+
+            // Footer
+            createNode("section", { style: { padding: "24px", textAlign: "center" } }, [
+                createNode("text", {
+                    content: "Open Email Editor — MIT Licensed",
+                    style: { fontSize: "12px", color: "#9ca3af" },
+                }),
+                createNode("link", {
+                    content: "View on GitHub",
+                    href: "https://github.com",
+                    color: "#5046e5",
+                }),
+            ]),
+        ]),
+    };
+}
+
+export default function HomePage() {
+    const [doc, setDoc] = useState<EmailDocument>(createSampleDocument);
+
+    const handleExportHTML = useCallback((html: string) => {
+        // Open in a new window to preview
+        const win = window.open("", "_blank");
+        if (win) {
+            win.document.write(html);
+            win.document.close();
+        }
+    }, []);
+
+    const handleExportJSON = useCallback((json: string) => {
+        navigator.clipboard.writeText(json).then(() => {
+            alert("JSON copied to clipboard!");
+        });
+    }, []);
+
+    return (
+        <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+            {/* App header */}
+            <header
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "12px 20px",
+                    borderBottom: "1px solid #27272a",
+                    background: "#09090b",
+                }}
+            >
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <span style={{ fontSize: "20px" }}>✉️</span>
+                    <span
+                        style={{
+                            fontSize: "16px",
+                            fontWeight: 700,
+                            background: "linear-gradient(135deg, #5046e5, #8b5cf6)",
+                            WebkitBackgroundClip: "text",
+                            WebkitTextFillColor: "transparent",
+                        }}
+                    >
+                        Open Email Editor
+                    </span>
+                    <span
+                        style={{
+                            fontSize: "11px",
+                            padding: "2px 8px",
+                            borderRadius: "9999px",
+                            background: "#1e1e24",
+                            color: "#71717a",
+                            border: "1px solid #27272a",
+                        }}
+                    >
+                        v0.1.0
+                    </span>
+                </div>
+                <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                    <a
+                        href="https://react.email"
+                        target="_blank"
+                        rel="noopener"
+                        style={{ fontSize: "13px", color: "#a1a1aa" }}
+                    >
+                        React Email ↗
+                    </a>
+                    <a
+                        href="https://github.com"
+                        target="_blank"
+                        rel="noopener"
+                        style={{ fontSize: "13px", color: "#a1a1aa" }}
+                    >
+                        GitHub ↗
+                    </a>
+                </div>
+            </header>
+
+            {/* Editor */}
+            <div style={{ flex: 1, overflow: "hidden" }}>
+                <EmailEditor
+                    initialDocument={doc}
+                    onChange={setDoc}
+                    config={{ theme: "dark" }}
+                    components={{
+                        ExportHTMLButton: ({ onClick, loading }) => (
+                            <button
+                                onClick={onClick}
+                                style={{
+                                    backgroundColor: "#ef4444",
+                                    color: "white",
+                                    padding: "6px 12px",
+                                    borderRadius: "4px",
+                                    border: "none",
+                                    fontSize: "13px",
+                                    fontWeight: 500,
+                                    cursor: loading ? "not-allowed" : "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "6px",
+                                    opacity: loading ? 0.7 : 1,
+                                }}
+                            >
+                                {loading ? "Generating..." : "🚀 Send Email"}
+                            </button>
+                        ),
+                    }}
+                    onExportHTML={handleExportHTML}
+                    onExportJSON={handleExportJSON}
+                    style={{ height: "100%", borderRadius: 0, border: "none" }}
+                />
+            </div>
+        </div>
+    );
+}

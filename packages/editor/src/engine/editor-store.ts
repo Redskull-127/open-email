@@ -25,6 +25,7 @@ import {
   moveNode as moveNodeOp,
   findNode,
   createEmptyDocument,
+  createStaticEmptyDocument,
 } from "./operations";
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
@@ -142,7 +143,7 @@ export function EditorProvider({
   children,
 }: EditorProviderProps) {
   const [state, dispatch] = useReducer(editorReducer, {
-    document: initialDocument ?? createEmptyDocument(),
+    document: initialDocument ?? createStaticEmptyDocument(),
     selectedNodeId: null,
     mode: "visual" as EditorMode,
     isDirty: false,

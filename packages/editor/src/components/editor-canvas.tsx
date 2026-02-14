@@ -3,12 +3,11 @@
 // Visual mode supports drag-and-drop reordering via drop zones.
 
 import React, { useCallback, useState, useEffect, useRef, useMemo } from "react";
-import { useEditor, useSelectedNode } from "../engine/editor-store";
+import { useEditor } from "../engine/editor-store";
 import { defaultRegistry } from "../registry/component-registry";
 import { exportToJSON, importFromJSON } from "../renderer/json-renderer";
 import { renderToHTML } from "../renderer/html-renderer";
-import type { EmailNode, NodeId } from "../types";
-import { Icons } from "./icons";
+import type { EmailNode } from "../types";
 import { useNodeDraggable, useDropZone, useContainerDropZone, useNodeDroppable, useDragDrop } from "./dnd";
 
 // ─── Drop Indicator ──────────────────────────────────────────────────────────
@@ -160,7 +159,7 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
                     {
                         style: {
                             display: "flex",
-                            gap: "8px",
+                            // gap: "8px", // React Email (tables) doesn't support gap. Removed for WYSIWYG parity.
                             width: "100%",
                             ...style,
                         },
@@ -168,18 +167,27 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
                     renderChildren()
                 );
 
-            case "column":
+            case "column": {
+                const verticalAlign = (style as any).verticalAlign;
+                let justifyContent = "flex-start";
+                if (verticalAlign === "middle") justifyContent = "center";
+                if (verticalAlign === "bottom") justifyContent = "flex-end";
+
                 return React.createElement(
                     "div",
                     {
                         style: {
                             flex: 1,
                             padding: "8px",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent,
                             ...style,
                         },
                     },
                     renderChildren()
                 );
+            }
 
             case "text":
                 return React.createElement(
@@ -260,7 +268,7 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
                     height: (node.props.height as number) ?? undefined,
                     style: {
                         maxWidth: "100%",
-                        height: "auto",
+                        height: (node.props.height ? `${node.props.height}px` : "auto"),
                         display: "block",
                         ...style,
                     },

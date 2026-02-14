@@ -11,13 +11,15 @@ export function generateId(): string {
 }
 
 /** Create a new node with a generated ID */
+// ...
 export function createNode(
   type: EmailNode["type"],
   props: Record<string, unknown> = {},
-  children?: EmailNode[]
+  children?: EmailNode[],
+  id?: string
 ): EmailNode {
   return {
-    id: generateId(),
+    id: id || generateId(),
     type,
     props,
     ...(children ? { children } : {}),
@@ -192,5 +194,31 @@ export function createEmptyDocument(title = "Untitled Email"): EmailDocument {
         createNode("text", { content: "Start building your email..." }),
       ]),
     ]),
+  };
+}
+/** Create a default empty document with fixed IDs for SSR/Hydration */
+export function createStaticEmptyDocument(title = "Untitled Email"): EmailDocument {
+  return {
+    version: 1,
+    meta: { title },
+    body: {
+      id: "root-container",
+      type: "container",
+      props: { maxWidth: "600px" },
+      children: [
+        {
+          id: "default-section",
+          type: "section",
+          props: {},
+          children: [
+            {
+              id: "default-text",
+              type: "text",
+              props: { content: "Start building your email..." },
+            },
+          ],
+        },
+      ],
+    },
   };
 }

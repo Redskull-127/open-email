@@ -135,6 +135,63 @@ function renderNode(node: EmailNode): React.ReactNode {
     }
 
     // Layout components with children
+    if (node.type === "column") {
+        const { style, ...otherProps } = resolvedProps as any;
+        const { verticalAlign, width, height, ...otherStyle } = (style || {}) as any;
+
+        return React.createElement(
+            Component,
+            {
+                key: node.id,
+                ...otherProps,
+                style: { ...otherStyle, verticalAlign }, // Pass verticalAlign in style
+                width, // width is valid attribute for td
+                height, // height is valid attribute for td
+            },
+            node.children.map(renderNode)
+        );
+    }
+
+    if (node.type === "row") {
+        const { style, ...otherProps } = resolvedProps as any;
+        // Handle simulated gap
+        const gap = style?.gap;
+        let children: React.ReactNode[] = node.children.map(renderNode);
+
+        if (gap) {
+            // Parse gap value (e.g. "10px" -> 10)
+            const gapValue = parseInt((gap as string).replace("px", ""), 10);
+            if (!isNaN(gapValue) && gapValue > 0) {
+                const newChildren: React.ReactNode[] = [];
+                children.forEach((child, index) => {
+                    newChildren.push(child);
+                    if (index < children.length - 1) {
+                        // Add spacer cell
+                        newChildren.push(
+                            React.createElement("td", {
+                                key: `spacer-${index}`,
+                                width: gapValue,
+                                style: { fontSize: 0, lineHeight: 0 }
+                            }, "\u00A0")
+                        );
+                    }
+                });
+                children = newChildren;
+            }
+        }
+
+        // Ensure background color and other styles are passed to Row
+        return React.createElement(
+            Component,
+            {
+                key: node.id,
+                ...otherProps,
+                style: { ...style, gap: undefined }, // Remove gap from style prop as it's not supported
+            },
+            children
+        );
+    }
+
     return React.createElement(
         Component,
         { key: node.id, ...resolvedProps },

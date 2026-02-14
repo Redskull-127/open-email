@@ -175,9 +175,12 @@ export function DragDropProvider({ children }: DragDropProviderProps) {
         [activeId, activeData, overId]
     );
 
+    const dndId = React.useId();
+
     return React.createElement(
         DndContext,
         {
+            id: dndId,
             sensors,
             collisionDetection,
             onDragStart: handleDragStart,

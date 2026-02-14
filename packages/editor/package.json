@@ -19,7 +19,8 @@
     "type": "git",
     "url": "git+https://github.com/Redskull-127/open-email.git"
   },
-  "author": "Open Email Team",
+  "author": "Meer Tarbani <admin@meertarbani.in>",
+  "homepage": "https://github.com/Redskull-127/open-email/tree/main/packages/editor#readme",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"

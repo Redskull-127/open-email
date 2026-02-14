@@ -1,4 +1,8 @@
-import React$1, { ReactNode } from 'react';
+import * as React$1 from 'react';
+import React__default, { ReactNode } from 'react';
+import * as _dnd_kit_core from '@dnd-kit/core';
+import * as _dnd_kit_utilities from '@dnd-kit/utilities';
+import * as _dnd_kit_core_dist_hooks_utilities from '@dnd-kit/core/dist/hooks/utilities';
 
 /** Unique identifier for document nodes */
 type NodeId = string;
@@ -215,23 +219,23 @@ interface EmailEditorProps {
     /** Custom class name */
     className?: string;
     /** Custom style */
-    style?: React$1.CSSProperties;
+    style?: React__default.CSSProperties;
     /** Replace the toolbar entirely */
-    toolbar?: React$1.ReactNode | false;
+    toolbar?: React__default.ReactNode | false;
     /** Replace the sidebar entirely */
-    sidebar?: React$1.ReactNode | false;
+    sidebar?: React__default.ReactNode | false;
     /** Replace the properties panel entirely */
-    propertiesPanel?: React$1.ReactNode | false;
+    propertiesPanel?: React__default.ReactNode | false;
     /** Replace the canvas entirely */
-    canvas?: React$1.ReactNode;
+    canvas?: React__default.ReactNode;
     /** Extra toolbar actions */
-    toolbarActions?: React$1.ReactNode;
+    toolbarActions?: React__default.ReactNode;
     /** Custom component overrides */
     components?: {
-        ExportJSONButton?: React$1.ComponentType<{
+        ExportJSONButton?: React__default.ComponentType<{
             onClick: () => void;
         }>;
-        ExportHTMLButton?: React$1.ComponentType<{
+        ExportHTMLButton?: React__default.ComponentType<{
             onClick: () => void;
             loading?: boolean;
         }>;
@@ -241,14 +245,14 @@ interface EmailEditorProps {
     /** Called when JSON is exported */
     onExportJSON?: (json: string) => void;
 }
-declare function EmailEditor({ initialDocument, onChange, config, className, style, toolbar, sidebar, propertiesPanel, canvas, toolbarActions, components, onExportHTML, onExportJSON, }: EmailEditorProps): React$1.FunctionComponentElement<EditorProviderProps>;
+declare function EmailEditor({ initialDocument, onChange, config, className, style, toolbar, sidebar, propertiesPanel, canvas, toolbarActions, components, onExportHTML, onExportJSON, }: EmailEditorProps): React__default.FunctionComponentElement<EditorProviderProps>;
 
 interface EditorToolbarProps {
     className?: string;
     /** Override available modes */
     modes?: EditorMode[];
     /** Custom actions rendered on the right side (before export buttons) */
-    actions?: React$1.ReactNode;
+    actions?: React__default.ReactNode;
     /** Called when HTML is exported */
     onExportHTML?: (html: string) => void;
     /** Called when JSON is exported */
@@ -259,16 +263,16 @@ interface EditorToolbarProps {
     showExportHTML?: boolean;
     /** Custom component overrides */
     components?: {
-        ExportJSONButton?: React$1.ComponentType<{
+        ExportJSONButton?: React__default.ComponentType<{
             onClick: () => void;
         }>;
-        ExportHTMLButton?: React$1.ComponentType<{
+        ExportHTMLButton?: React__default.ComponentType<{
             onClick: () => void;
             loading?: boolean;
         }>;
     };
 }
-declare function EditorToolbar({ className, modes, actions, onExportHTML, onExportJSON, showExportJSON, showExportHTML, components, }: EditorToolbarProps): React$1.DetailedReactHTMLElement<{
+declare function EditorToolbar({ className, modes, actions, onExportHTML, onExportJSON, showExportJSON, showExportHTML, components, }: EditorToolbarProps): React__default.DetailedReactHTMLElement<{
     className: string;
 }, HTMLElement>;
 
@@ -279,27 +283,27 @@ interface EditorSidebarProps {
     /** Initial active tab */
     defaultTab?: "components" | "layers";
 }
-declare function EditorSidebar({ className, registry, defaultTab, }: EditorSidebarProps): React$1.DetailedReactHTMLElement<{
+declare function EditorSidebar({ className, registry, defaultTab, }: EditorSidebarProps): React__default.DetailedReactHTMLElement<{
     className: string;
 }, HTMLElement>;
 
 interface EditorCanvasProps {
     className?: string;
 }
-declare function EditorCanvas({ className }: EditorCanvasProps): React$1.FunctionComponentElement<{}>;
+declare function EditorCanvas({ className }: EditorCanvasProps): React__default.FunctionComponentElement<{}>;
 
 interface PropertiesPanelProps {
     className?: string;
     registry?: ComponentRegistry;
 }
-declare function PropertiesPanel({ className, registry }: PropertiesPanelProps): React$1.DetailedReactHTMLElement<{
+declare function PropertiesPanel({ className, registry }: PropertiesPanelProps): React__default.DetailedReactHTMLElement<{
     className: string;
 }, HTMLElement>;
 
 interface LayerTreeProps {
     className?: string;
 }
-declare function LayerTree({ className }: LayerTreeProps): React$1.DetailedReactHTMLElement<{
+declare function LayerTree({ className }: LayerTreeProps): React__default.DetailedReactHTMLElement<{
     className: string;
 }, HTMLElement>;
 
@@ -308,7 +312,14 @@ interface ComponentCardProps {
     onClick: (definition: ComponentDefinition) => void;
     className?: string;
 }
-declare function ComponentCard({ definition, onClick, className }: ComponentCardProps): React$1.DetailedReactHTMLElement<{
+declare function ComponentCard({ definition, onClick, className }: ComponentCardProps): React__default.DetailedReactHTMLElement<{
+    role: string;
+    tabIndex: number;
+    'aria-disabled': boolean;
+    'aria-pressed': boolean | undefined;
+    'aria-roledescription': string;
+    'aria-describedby': string;
+    ref: (element: HTMLElement | null) => void;
     className: string;
     onClick: () => void;
     title: string;
@@ -319,35 +330,35 @@ interface IconProps {
     className?: string;
 }
 declare const Icons: {
-    box: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    layout: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    columns: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    sidebar: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    type: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    heading: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    mousePointer: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    image: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    externalLink: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    minus: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    moveVertical: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    eye: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    code: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    monitor: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    download: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    trash: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    plus: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    layers: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    chevronRight: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    chevronDown: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    settings: ({ size, className }: IconProps) => React$1.ReactSVGElement;
-    copy: ({ size, className }: IconProps) => React$1.ReactSVGElement;
+    box: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    layout: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    columns: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    sidebar: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    type: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    heading: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    mousePointer: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    image: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    externalLink: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    minus: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    moveVertical: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    eye: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    code: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    monitor: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    download: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    trash: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    plus: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    layers: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    chevronRight: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    chevronDown: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    settings: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    copy: ({ size, className }: IconProps) => React__default.ReactSVGElement;
 };
 /** Get an icon component by name */
-declare function getIcon(name: string): React$1.ComponentType<IconProps>;
+declare function getIcon(name: string): React__default.ComponentType<IconProps>;
 
 interface EditorContextValue {
     state: EditorState;
-    dispatch: React$1.Dispatch<EditorAction>;
+    dispatch: React__default.Dispatch<EditorAction>;
 }
 interface EditorProviderProps {
     /** Initial document to load */
@@ -356,11 +367,11 @@ interface EditorProviderProps {
     onChange?: (document: EmailDocument) => void;
     children?: ReactNode;
 }
-declare function EditorProvider({ initialDocument, onChange, children, }: EditorProviderProps): React$1.FunctionComponentElement<React$1.ProviderProps<EditorContextValue | null>>;
+declare function EditorProvider({ initialDocument, onChange, children, }: EditorProviderProps): React__default.FunctionComponentElement<React__default.ProviderProps<EditorContextValue | null>>;
 /** Access the full editor state and dispatch */
 declare function useEditor(): {
     /** Raw dispatch for custom actions */
-    dispatch: React$1.Dispatch<EditorAction>;
+    dispatch: React__default.Dispatch<EditorAction>;
     /** Set the entire document */
     setDocument: (doc: EmailDocument) => void;
     /** Select a node by ID */
@@ -418,7 +429,7 @@ declare function createEmptyDocument(title?: string): EmailDocument;
  * Convert an EmailDocument into a React Email element tree.
  * Returns a full <Html><Head/><Preview/><Body>...</Body></Html> element.
  */
-declare function renderToReactEmail(document: EmailDocument): React$1.ReactElement;
+declare function renderToReactEmail(document: EmailDocument): React__default.ReactElement;
 
 /**
  * Render an EmailDocument to an HTML string.
@@ -451,4 +462,103 @@ declare function getComponentsByCategory(registry: ComponentRegistry): Record<st
 /** Get a single component definition by type */
 declare function getComponentDef(registry: ComponentRegistry, type: EmailNodeType): ComponentDefinition | undefined;
 
-export { type BaseNodeProps, type ButtonProps, type ColumnProps, ComponentCard, type ComponentCardProps, type ComponentDefinition, type ComponentRegistry, type ContainerProps, type EditorAction, EditorCanvas, type EditorCanvasProps, type EditorConfig, type EditorMode, EditorProvider, type EditorProviderProps, EditorSidebar, type EditorSidebarProps, type EditorState, EditorToolbar, type EditorToolbarProps, type EmailDocument, EmailEditor, type EmailEditorProps, type EmailNode, type EmailNodeProps, type EmailNodeType, type HeadingProps, type HrProps, Icons, type ImageProps, LayerTree, type LayerTreeProps, type LinkProps, type NodeId, PropertiesPanel, type PropertiesPanelProps, type PropertySchema, type RowProps, type SectionProps, type SpacerProps, type TextProps, addNode, cloneNode, createEmptyDocument, createNode, createRegistry, defaultRegistry, exportToJSON, findNode, findParent, flattenTree, generateId, getComponentDef, getComponentsByCategory, getIcon, getNodePath, importFromJSON, mergeRegistries, moveNode, removeNode, renderToHTML, renderToPlainText, renderToReactEmail, updateNode, useEditor, useNode, useSelectedNode, validateDocument };
+/** Data attached to a sidebar draggable */
+interface SidebarDragData {
+    origin: "sidebar";
+    componentType: string;
+    label: string;
+}
+/** Data attached to a canvas/layer sortable */
+interface NodeDragData {
+    origin: "canvas" | "layers";
+    nodeId: string;
+    parentId: string;
+    index: number;
+    label: string;
+}
+type DragData = SidebarDragData | NodeDragData;
+/** Data attached to a droppable zone */
+interface DropZoneData {
+    parentId: string;
+    index: number;
+}
+interface DragDropContextValue {
+    activeId: string | null;
+    activeData: DragData | null;
+    overId: string | null;
+}
+declare function useDragDrop(): DragDropContextValue;
+interface DragDropProviderProps {
+    children: ReactNode;
+}
+declare function DragDropProvider({ children }: DragDropProviderProps): React__default.FunctionComponentElement<_dnd_kit_core.DndContextProps>;
+
+/** Makes a sidebar component card draggable. */
+declare function useSidebarDraggable(componentType: string, label: string): {
+    active: _dnd_kit_core.Active | null;
+    activatorEvent: Event | null;
+    activeNodeRect: _dnd_kit_core.ClientRect | null;
+    attributes: _dnd_kit_core.DraggableAttributes;
+    isDragging: boolean;
+    listeners: _dnd_kit_core_dist_hooks_utilities.SyntheticListenerMap | undefined;
+    node: React$1.MutableRefObject<HTMLElement | null>;
+    over: _dnd_kit_core.Over | null;
+    setNodeRef: (element: HTMLElement | null) => void;
+    setActivatorNodeRef: (element: HTMLElement | null) => void;
+    transform: _dnd_kit_utilities.Transform | null;
+};
+/** Makes an existing node draggable (for canvas and layer tree). */
+declare function useNodeDraggable(nodeId: string, parentId: string, index: number, label: string, origin: "canvas" | "layers"): {
+    active: _dnd_kit_core.Active | null;
+    activatorEvent: Event | null;
+    activeNodeRect: _dnd_kit_core.ClientRect | null;
+    attributes: _dnd_kit_core.DraggableAttributes;
+    isDragging: boolean;
+    listeners: _dnd_kit_core_dist_hooks_utilities.SyntheticListenerMap | undefined;
+    node: React$1.MutableRefObject<HTMLElement | null>;
+    over: _dnd_kit_core.Over | null;
+    setNodeRef: (element: HTMLElement | null) => void;
+    setActivatorNodeRef: (element: HTMLElement | null) => void;
+    transform: _dnd_kit_utilities.Transform | null;
+};
+/**
+ * Creates a drop zone indicator between sibling nodes.
+ * `parentId` = the parent container that will receive the dropped child.
+ * `index`    = the insertion index within parent.children.
+ */
+declare function useDropZone(parentId: string, index: number): {
+    active: _dnd_kit_core.Active | null;
+    rect: React$1.MutableRefObject<_dnd_kit_core.ClientRect | null>;
+    isOver: boolean;
+    node: React$1.MutableRefObject<HTMLElement | null>;
+    over: _dnd_kit_core.Over | null;
+    setNodeRef: (element: HTMLElement | null) => void;
+};
+/**
+ * Creates a droppable area for an empty container.
+ * Inserts at index 0.
+ */
+declare function useContainerDropZone(containerId: string): {
+    active: _dnd_kit_core.Active | null;
+    rect: React$1.MutableRefObject<_dnd_kit_core.ClientRect | null>;
+    isOver: boolean;
+    node: React$1.MutableRefObject<HTMLElement | null>;
+    over: _dnd_kit_core.Over | null;
+    setNodeRef: (element: HTMLElement | null) => void;
+};
+/**
+ * Makes a canvas node droppable.
+ * When something is dropped ON a node:
+ * - If it accepts children → insert at index 0 (inside)
+ * - If it does not → insert after this node (parentId, index+1)
+ */
+declare function useNodeDroppable(nodeId: string, parentId: string, index: number, acceptsChildren: boolean): {
+    active: _dnd_kit_core.Active | null;
+    rect: React$1.MutableRefObject<_dnd_kit_core.ClientRect | null>;
+    isOver: boolean;
+    node: React$1.MutableRefObject<HTMLElement | null>;
+    over: _dnd_kit_core.Over | null;
+    setNodeRef: (element: HTMLElement | null) => void;
+};
+
+export { type BaseNodeProps, type ButtonProps, type ColumnProps, ComponentCard, type ComponentCardProps, type ComponentDefinition, type ComponentRegistry, type ContainerProps, type DragData, DragDropProvider, type DropZoneData, type EditorAction, EditorCanvas, type EditorCanvasProps, type EditorConfig, type EditorMode, EditorProvider, type EditorProviderProps, EditorSidebar, type EditorSidebarProps, type EditorState, EditorToolbar, type EditorToolbarProps, type EmailDocument, EmailEditor, type EmailEditorProps, type EmailNode, type EmailNodeProps, type EmailNodeType, type HeadingProps, type HrProps, Icons, type ImageProps, LayerTree, type LayerTreeProps, type LinkProps, type NodeDragData, type NodeId, PropertiesPanel, type PropertiesPanelProps, type PropertySchema, type RowProps, type SectionProps, type SidebarDragData, type SpacerProps, type TextProps, addNode, cloneNode, createEmptyDocument, createNode, createRegistry, defaultRegistry, exportToJSON, findNode, findParent, flattenTree, generateId, getComponentDef, getComponentsByCategory, getIcon, getNodePath, importFromJSON, mergeRegistries, moveNode, removeNode, renderToHTML, renderToPlainText, renderToReactEmail, updateNode, useContainerDropZone, useDragDrop, useDropZone, useEditor, useNode, useNodeDraggable, useNodeDroppable, useSelectedNode, useSidebarDraggable, validateDocument };

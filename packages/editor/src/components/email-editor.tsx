@@ -4,6 +4,7 @@
 
 import React from "react";
 import { EditorProvider } from "../engine/editor-store";
+import { DragDropProvider } from "./dnd/drag-drop-provider";
 import { EditorToolbar } from "./editor-toolbar";
 import { EditorSidebar } from "./editor-sidebar";
 import { EditorCanvas } from "./editor-canvas";
@@ -74,45 +75,49 @@ export function EmailEditor({
         EditorProvider,
         { initialDocument, onChange },
         React.createElement(
-            "div",
-            {
-                className: `open-email-editor ${className ?? ""}`,
-                "data-theme": theme,
-                style,
-            },
-
-            // Toolbar
-            showToolbar &&
-            toolbar !== false &&
-            (toolbar ??
-                React.createElement(EditorToolbar, {
-                    modes: availableModes,
-                    actions: toolbarActions,
-                    showExportJSON,
-                    showExportHTML,
-                    components,
-                    onExportHTML,
-                    onExportJSON,
-                })),
-
-            // Body (sidebar + canvas + properties)
+            DragDropProvider,
+            null,
             React.createElement(
                 "div",
-                { className: "oe-editor-body" },
+                {
+                    className: `open-email-editor ${className ?? ""}`,
+                    "data-theme": theme,
+                    style,
+                },
 
-                // Sidebar
-                showSidebar &&
-                sidebar !== false &&
-                (sidebar ?? React.createElement(EditorSidebar, { registry })),
+                // Toolbar
+                showToolbar &&
+                toolbar !== false &&
+                (toolbar ??
+                    React.createElement(EditorToolbar, {
+                        modes: availableModes,
+                        actions: toolbarActions,
+                        showExportJSON,
+                        showExportHTML,
+                        components,
+                        onExportHTML,
+                        onExportJSON,
+                    })),
 
-                // Canvas
-                canvas ?? React.createElement(EditorCanvas, null),
+                // Body (sidebar + canvas + properties)
+                React.createElement(
+                    "div",
+                    { className: "oe-editor-body" },
 
-                // Properties Panel
-                showProperties &&
-                propertiesPanel !== false &&
-                (propertiesPanel ??
-                    React.createElement(PropertiesPanel, { registry }))
+                    // Sidebar (Draggables)
+                    showSidebar &&
+                    sidebar !== false &&
+                    (sidebar ?? React.createElement(EditorSidebar, { registry })),
+
+                    // Canvas (Droppables/Sortables)
+                    canvas ?? React.createElement(EditorCanvas, null),
+
+                    // Properties Panel
+                    showProperties &&
+                    propertiesPanel !== false &&
+                    (propertiesPanel ??
+                        React.createElement(PropertiesPanel, { registry }))
+                )
             )
         )
     );

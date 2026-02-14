@@ -1,9 +1,10 @@
 // ─── Component Card ──────────────────────────────────────────────────────────
-// Clickable card in the sidebar component palette.
+// Clickable + draggable card in the sidebar component palette.
 
 import React from "react";
 import type { ComponentDefinition } from "../types";
 import { getIcon } from "./icons";
+import { useSidebarDraggable } from "./dnd";
 
 export interface ComponentCardProps {
     definition: ComponentDefinition;
@@ -13,13 +14,20 @@ export interface ComponentCardProps {
 
 export function ComponentCard({ definition, onClick, className }: ComponentCardProps) {
     const Icon = getIcon(definition.icon);
+    const { attributes, listeners, setNodeRef, isDragging } = useSidebarDraggable(
+        definition.type,
+        definition.label
+    );
 
     return React.createElement(
         "button",
         {
-            className: `oe-component-card ${className ?? ""}`,
+            ref: setNodeRef,
+            className: `oe-component-card ${isDragging ? "oe-dragging" : ""} ${className ?? ""}`,
             onClick: () => onClick(definition),
             title: definition.description,
+            ...listeners,
+            ...attributes,
         },
         React.createElement(
             "span",

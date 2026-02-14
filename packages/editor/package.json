@@ -2,7 +2,14 @@
   "name": "@open-email/editor",
   "version": "0.1.0",
   "description": "Open-source visual email editor built on React Email — shadcn-style customizable components",
-  "keywords": ["react", "email", "editor", "react-email", "template", "builder"],
+  "keywords": [
+    "react",
+    "email",
+    "editor",
+    "react-email",
+    "template",
+    "builder"
+  ],
   "license": "MIT",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -40,22 +47,25 @@
     "clean": "rm -rf dist"
   },
   "peerDependencies": {
-    "react": ">=18.0.0",
-    "react-dom": ">=18.0.0",
     "@react-email/components": ">=0.0.20",
-    "@react-email/render": ">=1.0.0"
+    "@react-email/render": ">=1.0.0",
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.5.0",
-    "tsup": "^8.3.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
     "@react-email/components": "^0.0.31",
     "@react-email/render": "^1.0.3",
     "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1"
+    "@types/react-dom": "^18.3.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tsup": "^8.3.0",
+    "typescript": "^5.5.0"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "nanoid": "^5.0.9"
   }
 }

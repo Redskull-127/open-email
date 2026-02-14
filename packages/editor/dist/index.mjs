@@ -17,9 +17,9 @@ import { nanoid } from "nanoid";
 function generateId() {
   return nanoid(10);
 }
-function createNode(type, props = {}, children, id) {
+function createNode(type, props = {}, children) {
   return {
-    id: id || generateId(),
+    id: generateId(),
     type,
     props,
     ...children ? { children } : {}
@@ -414,34 +414,6 @@ var defaultDefinitions = [
         label: "Background",
         type: "color",
         group: "style"
-      },
-      {
-        key: "style.height",
-        label: "Height",
-        type: "text",
-        group: "layout",
-        placeholder: "e.g. 50px"
-      },
-      {
-        key: "style.padding",
-        label: "Padding",
-        type: "text",
-        group: "layout",
-        placeholder: "e.g. 10px"
-      },
-      {
-        key: "style.margin",
-        label: "Margin",
-        type: "text",
-        group: "layout",
-        placeholder: "e.g. 10px"
-      },
-      {
-        key: "style.gap",
-        label: "Gap",
-        type: "text",
-        group: "layout",
-        placeholder: "e.g. 10px (simulated)"
       }
     ]
   },
@@ -462,13 +434,6 @@ var defaultDefinitions = [
         placeholder: "e.g. 50%, 300px"
       },
       {
-        key: "style.height",
-        label: "Height",
-        type: "text",
-        group: "layout",
-        placeholder: "e.g. 50px"
-      },
-      {
         key: "style.verticalAlign",
         label: "Vertical Align",
         type: "select",
@@ -485,39 +450,6 @@ var defaultDefinitions = [
         type: "text",
         group: "layout",
         placeholder: "e.g. 10px"
-      },
-      {
-        key: "style.margin",
-        label: "Margin",
-        type: "text",
-        group: "layout",
-        placeholder: "e.g. 10px"
-      },
-      {
-        key: "style.backgroundColor",
-        label: "Background",
-        type: "color",
-        group: "style"
-      },
-      {
-        key: "style.borderWidth",
-        label: "Border Width",
-        type: "text",
-        group: "style",
-        placeholder: "e.g. 1px"
-      },
-      {
-        key: "style.borderColor",
-        label: "Border Color",
-        type: "color",
-        group: "style"
-      },
-      {
-        key: "style.borderRadius",
-        label: "Border Radius",
-        type: "text",
-        group: "style",
-        placeholder: "e.g. 4px"
       }
     ]
   },
@@ -926,11 +858,9 @@ function DragDropProvider({ children }) {
     () => ({ activeId, activeData, overId }),
     [activeId, activeData, overId]
   );
-  const dndId = React2.useId();
   return React2.createElement(
     DndContext,
     {
-      id: dndId,
       sensors,
       collisionDetection,
       onDragStart: handleDragStart,
@@ -943,7 +873,7 @@ function DragDropProvider({ children }) {
       { value: ctxValue },
       children
     ),
-    // Drag overlay ghost
+    // Drag overlay — generic floating ghost
     React2.createElement(
       DragOverlay,
       { dropAnimation: null },
@@ -1066,17 +996,6 @@ function resolveProps(props) {
   return resolved;
 }
 function renderNode(node) {
-  if (node.type === "spacer") {
-    const resolvedProps2 = resolveProps(node.props);
-    const h = resolvedProps2.height ?? "20px";
-    return React3.createElement(
-      Section,
-      { key: node.id },
-      React3.createElement("div", {
-        style: { height: h, lineHeight: h, fontSize: "1px" }
-      }, "\xA0")
-    );
-  }
   const Component = componentMap[node.type];
   if (!Component) {
     return React3.createElement(
@@ -1102,55 +1021,13 @@ function renderNode(node) {
     );
   }
   if (!node.children || node.children.length === 0) {
-    return React3.createElement(Component, { key: node.id, ...resolvedProps });
-  }
-  if (node.type === "column") {
-    const { style, ...otherProps } = resolvedProps;
-    const { verticalAlign, width, height, ...otherStyle } = style || {};
-    return React3.createElement(
-      Component,
-      {
+    if (node.type === "spacer") {
+      return React3.createElement("div", {
         key: node.id,
-        ...otherProps,
-        style: { ...otherStyle, verticalAlign },
-        width,
-        height
-      },
-      node.children.map(renderNode)
-    );
-  }
-  if (node.type === "row") {
-    const { style, ...otherProps } = resolvedProps;
-    const gap = style?.gap;
-    let children = node.children.map(renderNode);
-    if (gap) {
-      const gapValue = parseInt(gap.replace("px", ""), 10);
-      if (!isNaN(gapValue) && gapValue > 0) {
-        const newChildren = [];
-        children.forEach((child, index) => {
-          newChildren.push(child);
-          if (index < children.length - 1) {
-            newChildren.push(
-              React3.createElement("td", {
-                key: `spacer-${index}`,
-                width: gapValue,
-                style: { fontSize: 0, lineHeight: 0 }
-              }, "\xA0")
-            );
-          }
-        });
-        children = newChildren;
-      }
+        style: { height: resolvedProps.height ?? "20px" }
+      });
     }
-    return React3.createElement(
-      Component,
-      {
-        key: node.id,
-        ...otherProps,
-        style: { ...style, gap: void 0 }
-      },
-      children
-    );
+    return React3.createElement(Component, { key: node.id, ...resolvedProps });
   }
   return React3.createElement(
     Component,
@@ -1749,32 +1626,25 @@ function CanvasNode({ node, parentId, index }) {
           {
             style: {
               display: "flex",
+              gap: "8px",
               width: "100%",
               ...style
             }
           },
           renderChildren()
         );
-      case "column": {
-        const verticalAlign = style.verticalAlign;
-        let justifyContent = "flex-start";
-        if (verticalAlign === "middle") justifyContent = "center";
-        if (verticalAlign === "bottom") justifyContent = "flex-end";
+      case "column":
         return React9.createElement(
           "div",
           {
             style: {
               flex: 1,
               padding: "8px",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent,
               ...style
             }
           },
           renderChildren()
         );
-      }
       case "text":
         return React9.createElement(
           "p",
@@ -1848,7 +1718,7 @@ function CanvasNode({ node, parentId, index }) {
           height: node.props.height ?? void 0,
           style: {
             maxWidth: "100%",
-            height: node.props.height ? `${node.props.height}px` : "auto",
+            height: "auto",
             display: "block",
             ...style
           }

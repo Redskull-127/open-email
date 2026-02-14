@@ -9,7 +9,7 @@ import { EditorToolbar } from "./editor-toolbar";
 import { EditorSidebar } from "./editor-sidebar";
 import { EditorCanvas } from "./editor-canvas";
 import { PropertiesPanel } from "./properties-panel";
-import type { EmailDocument, EditorConfig } from "../types";
+import type { EmailDocument, EditorConfig, EditorMode } from "../types";
 
 export interface EmailEditorProps {
     /** Initial document to edit */

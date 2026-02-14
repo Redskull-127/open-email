@@ -2,8 +2,10 @@
 // Converts the JSON document schema to React Email component elements.
 
 import React from "react";
-import type { EmailDocument, EmailNode } from "../types";
+import type { EmailDocument, EmailNode, ComponentRegistry } from "../types";
+import { defaultRegistry } from "../registry/component-registry";
 
+// React Email component imports — we import them dynamically to keep this flexible
 import {
     Html,
     Body,
@@ -40,7 +42,7 @@ function resolveProps(props: Record<string, unknown>): Record<string, unknown> {
     const resolved: Record<string, unknown> = {};
     const styleObj: Record<string, unknown> = {};
 
-    // Props that should be forwarded as CSS style rather than DOM attributes
+    // List of props that should be moved to style to avoid React warnings
     const STYLE_PROPS = new Set([
         "maxWidth",
         "backgroundColor",
@@ -71,7 +73,8 @@ function resolveProps(props: Record<string, unknown>): Record<string, unknown> {
         }
     }
 
-    // Merge explicit style object
+    // Merge with existing style prop if present in resolved (though usually it's not)
+    // or if passed as a separate object in props
     if (props.style && typeof props.style === "object") {
         Object.assign(styleObj, props.style);
     }
@@ -85,23 +88,12 @@ function resolveProps(props: Record<string, unknown>): Record<string, unknown> {
 
     return resolved;
 }
+
 /** Render a single node to a React element */
 function renderNode(node: EmailNode): React.ReactNode {
-    // Spacer has no React Email component — render as table-safe forced-height block
-    if (node.type === "spacer") {
-        const resolvedProps = resolveProps(node.props);
-        const h = (resolvedProps.height as string) ?? "20px";
-        return React.createElement(
-            Section,
-            { key: node.id },
-            React.createElement("div", {
-                style: { height: h, lineHeight: h, fontSize: "1px" },
-            }, "\u00A0")
-        );
-    }
-
     const Component = componentMap[node.type];
     if (!Component) {
+        // Unknown component — render as div with warning
         return React.createElement(
             "div",
             { key: node.id, "data-unknown-type": node.type },
@@ -111,10 +103,10 @@ function renderNode(node: EmailNode): React.ReactNode {
 
     const resolvedProps = resolveProps(node.props);
 
-    // Components with text content instead of children
+    // Handle components that have text content instead of children
     const { content, text, ...restProps } = resolvedProps as any;
 
-
+    // Text/Heading use content, Button uses text
     if (node.type === "text" || node.type === "heading" || node.type === "link") {
         return React.createElement(
             Component,
@@ -131,66 +123,18 @@ function renderNode(node: EmailNode): React.ReactNode {
         );
     }
 
-
+    // Leaf nodes (hr, spacer, image)
     if (!node.children || node.children.length === 0) {
+        if (node.type === "spacer") {
+            return React.createElement("div", {
+                key: node.id,
+                style: { height: (resolvedProps.height as string) ?? "20px" },
+            });
+        }
         return React.createElement(Component, { key: node.id, ...resolvedProps });
     }
 
-
-    if (node.type === "column") {
-        const { style, ...otherProps } = resolvedProps as any;
-        const { verticalAlign, width, height, ...otherStyle } = (style || {}) as any;
-
-        return React.createElement(
-            Component,
-            {
-                key: node.id,
-                ...otherProps,
-                style: { ...otherStyle, verticalAlign },
-                width,
-                height,
-            },
-            node.children.map(renderNode)
-        );
-    }
-
-    if (node.type === "row") {
-        const { style, ...otherProps } = resolvedProps as any;
-        const gap = style?.gap;
-        let children: React.ReactNode[] = node.children.map(renderNode);
-
-        if (gap) {
-            const gapValue = parseInt((gap as string).replace("px", ""), 10);
-            if (!isNaN(gapValue) && gapValue > 0) {
-                const newChildren: React.ReactNode[] = [];
-                children.forEach((child, index) => {
-                    newChildren.push(child);
-                    if (index < children.length - 1) {
-                        // Spacer cell between columns
-                        newChildren.push(
-                            React.createElement("td", {
-                                key: `spacer-${index}`,
-                                width: gapValue,
-                                style: { fontSize: 0, lineHeight: 0 }
-                            }, "\u00A0")
-                        );
-                    }
-                });
-                children = newChildren;
-            }
-        }
-
-        return React.createElement(
-            Component,
-            {
-                key: node.id,
-                ...otherProps,
-                style: { ...style, gap: undefined },
-            },
-            children
-        );
-    }
-
+    // Layout components with children
     return React.createElement(
         Component,
         { key: node.id, ...resolvedProps },

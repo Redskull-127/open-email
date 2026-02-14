@@ -2,11 +2,11 @@
 // Recursive tree view of the document structure with drag-and-drop reordering.
 
 import React, { useState, useCallback } from "react";
-import type { EmailNode } from "../types";
+import type { EmailNode, NodeId } from "../types";
 import { useEditor } from "../engine/editor-store";
 import { Icons, getIcon } from "./icons";
 import { defaultRegistry } from "../registry/component-registry";
-import { useNodeDraggable, useDropZone } from "./dnd";
+import { useNodeDraggable, useDropZone, useDragDrop } from "./dnd";
 
 // ─── Drop Indicator (Layer version) ──────────────────────────────────────────
 

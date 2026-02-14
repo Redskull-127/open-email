@@ -435,7 +435,7 @@
   pointer-events: none;
 }
 
-/* Drop zone */
+/* Drop zone (empty containers) */
 .oe-drop-zone {
   border: 2px dashed var(--oe-border);
   border-radius: var(--oe-radius);
@@ -447,10 +447,90 @@
   margin: 4px 0;
 }
 
-.oe-drop-zone:hover {
+.oe-drop-zone:hover,
+.oe-drop-zone-active {
   border-color: var(--oe-primary);
   color: var(--oe-primary);
   background: var(--oe-primary-light);
+}
+
+/* ─── Drag & Drop ────────────────────────────────────────────────────────── */
+
+/* Drop indicator line between siblings in canvas */
+.oe-drop-indicator {
+  height: 0;
+  padding: 6px 0;
+  margin: 0;
+  border-radius: 2px;
+  transition: all 150ms ease;
+  position: relative;
+  background-clip: content-box;
+}
+
+.oe-drop-indicator-active {
+  background-color: var(--oe-primary);
+  height: 0;
+  padding: 3px 0;
+  box-shadow: 0 0 0 2px var(--oe-selection);
+}
+
+/* Dragging state */
+.oe-dragging {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* Drop target highlight */
+.oe-drop-target {
+  outline: 2px dashed var(--oe-primary) !important;
+  outline-offset: -2px;
+  background: var(--oe-primary-light);
+}
+
+/* Drag overlay (floating ghost) */
+.oe-drag-overlay {
+  padding: 8px 16px;
+  background: var(--oe-bg, #fff);
+  border: 1px solid var(--oe-primary, #5046e5);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--oe-fg, #0f172a);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Layer tree drop indicator */
+.oe-layer-drop-indicator {
+  height: 0;
+  padding: 4px 0;
+  margin: 0;
+  list-style: none;
+  transition: all 150ms ease;
+  background-clip: content-box;
+}
+
+.oe-layer-drop-indicator-active {
+  background-color: var(--oe-primary);
+  height: 0;
+  padding: 2px 0;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--oe-selection);
+}
+
+/* Grab cursor for draggable elements */
+.oe-component-card,
+.oe-canvas-node,
+.oe-layer-item-content {
+  cursor: grab;
+}
+
+.oe-component-card:active,
+.oe-canvas-node:active,
+.oe-layer-item-content:active {
+  cursor: grabbing;
 }
 
 /* Empty state */

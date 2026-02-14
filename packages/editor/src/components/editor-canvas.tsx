@@ -1,5 +1,6 @@
 // ─── Editor Canvas ───────────────────────────────────────────────────────────
 // Central editing area with visual, code, and preview modes.
+// Visual mode supports drag-and-drop reordering via drop zones.
 
 import React, { useCallback, useState, useEffect, useRef, useMemo } from "react";
 import { useEditor, useSelectedNode } from "../engine/editor-store";
@@ -8,27 +9,124 @@ import { exportToJSON, importFromJSON } from "../renderer/json-renderer";
 import { renderToHTML } from "../renderer/html-renderer";
 import type { EmailNode, NodeId } from "../types";
 import { Icons } from "./icons";
+import { useNodeDraggable, useDropZone, useContainerDropZone, useNodeDroppable, useDragDrop } from "./dnd";
+
+// ─── Drop Indicator ──────────────────────────────────────────────────────────
+// Thin line shown between nodes to indicate where a drop will insert.
+
+interface DropIndicatorProps {
+    parentId: string;
+    index: number;
+}
+
+function DropIndicator({ parentId, index }: DropIndicatorProps) {
+    const { setNodeRef, isOver } = useDropZone(parentId, index);
+
+    return React.createElement("div", {
+        ref: setNodeRef,
+        className: `oe-drop-indicator ${isOver ? "oe-drop-indicator-active" : ""}`,
+    });
+}
+
+// ─── Container Empty Drop Zone ───────────────────────────────────────────────
+
+interface EmptyContainerDropZoneProps {
+    containerId: string;
+    label?: string;
+}
+
+function EmptyContainerDropZone({ containerId, label }: EmptyContainerDropZoneProps) {
+    const { setNodeRef, isOver } = useContainerDropZone(containerId);
+
+    return React.createElement("div", {
+        ref: setNodeRef,
+        className: `oe-drop-zone ${isOver ? "oe-drop-zone-active" : ""}`,
+    }, label ?? "+ Drop component here");
+}
 
 // ─── Visual Canvas Node ──────────────────────────────────────────────────────
 
 interface CanvasNodeProps {
     node: EmailNode;
+    parentId: string;
+    index: number;
 }
 
-function CanvasNode({ node }: CanvasNodeProps): React.ReactElement {
+function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElement {
     const { selectedNodeId, selectNode } = useEditor();
+    const { activeData } = useDragDrop();
     const isSelected = selectedNodeId === node.id;
     const def = defaultRegistry.get(node.type);
+    const label = def?.label ?? node.type;
+    const hasChildren = node.children && node.children.length > 0;
+    const acceptsChildren = def?.acceptsChildren ?? false;
 
-    const handleClick = useCallback(
-        (e: React.MouseEvent) => {
-            e.stopPropagation();
-            selectNode(node.id);
+    // Make this node draggable
+    const {
+        attributes,
+        listeners,
+        setNodeRef: setDragRef,
+        isDragging,
+    } = useNodeDraggable(node.id, parentId, index, label, "canvas");
+
+    // Make this node also droppable (so sidebar items can land on it)
+    const {
+        setNodeRef: setDropRef,
+        isOver,
+    } = useNodeDroppable(node.id, parentId, index, acceptsChildren);
+
+    // Merge drag + drop refs
+    const mergedRef = useCallback(
+        (el: HTMLElement | null) => {
+            setDragRef(el);
+            setDropRef(el);
         },
-        [node.id, selectNode]
+        [setDragRef, setDropRef]
     );
 
-    const label = def?.label ?? node.type;
+    // Render children with drop indicators between them
+    const renderChildren = (): React.ReactNode => {
+        if (!acceptsChildren) return null;
+
+        if (!hasChildren) {
+            return React.createElement(EmptyContainerDropZone, {
+                containerId: node.id,
+                label: getEmptyLabel(node.type),
+            });
+        }
+
+        const elements: React.ReactNode[] = [];
+
+        // Drop indicator before first child
+        elements.push(
+            React.createElement(DropIndicator, {
+                key: `drop-${node.id}-0`,
+                parentId: node.id,
+                index: 0,
+            })
+        );
+
+        node.children!.forEach((child, i) => {
+            elements.push(
+                React.createElement(CanvasNode, {
+                    key: child.id,
+                    node: child,
+                    parentId: node.id,
+                    index: i,
+                })
+            );
+            // Drop indicator after each child
+            elements.push(
+                React.createElement(DropIndicator, {
+                    key: `drop-${node.id}-${i + 1}`,
+                    parentId: node.id,
+                    index: i + 1,
+                })
+            );
+        });
+
+        return elements;
+    };
 
     // Render the visual representation
     const renderContent = (): React.ReactNode => {
@@ -46,30 +144,14 @@ function CanvasNode({ node }: CanvasNodeProps): React.ReactElement {
                             ...style,
                         },
                     },
-                    node.children?.map((child) =>
-                        React.createElement(CanvasNode, { key: child.id, node: child })
-                    ),
-                    (!node.children || node.children.length === 0) &&
-                    React.createElement(
-                        "div",
-                        { className: "oe-drop-zone" },
-                        "+ Add component"
-                    )
+                    renderChildren()
                 );
 
             case "section":
                 return React.createElement(
                     "div",
                     { style: { padding: "10px 0", ...style } },
-                    node.children?.map((child) =>
-                        React.createElement(CanvasNode, { key: child.id, node: child })
-                    ),
-                    (!node.children || node.children.length === 0) &&
-                    React.createElement(
-                        "div",
-                        { className: "oe-drop-zone" },
-                        "+ Add to section"
-                    )
+                    renderChildren()
                 );
 
             case "row":
@@ -83,15 +165,7 @@ function CanvasNode({ node }: CanvasNodeProps): React.ReactElement {
                             ...style,
                         },
                     },
-                    node.children?.map((child) =>
-                        React.createElement(CanvasNode, { key: child.id, node: child })
-                    ),
-                    (!node.children || node.children.length === 0) &&
-                    React.createElement(
-                        "div",
-                        { className: "oe-drop-zone", style: { flex: 1 } },
-                        "+ Add column"
-                    )
+                    renderChildren()
                 );
 
             case "column":
@@ -104,15 +178,7 @@ function CanvasNode({ node }: CanvasNodeProps): React.ReactElement {
                             ...style,
                         },
                     },
-                    node.children?.map((child) =>
-                        React.createElement(CanvasNode, { key: child.id, node: child })
-                    ),
-                    (!node.children || node.children.length === 0) &&
-                    React.createElement(
-                        "div",
-                        { className: "oe-drop-zone" },
-                        "+ Add content"
-                    )
+                    renderChildren()
                 );
 
             case "text":
@@ -244,17 +310,39 @@ function CanvasNode({ node }: CanvasNodeProps): React.ReactElement {
         }
     };
 
+    const isDropTarget = isOver && !isDragging;
+
     return React.createElement(
         "div",
         {
-            className: "oe-canvas-node",
+            ref: mergedRef,
+            className: `oe-canvas-node ${isDragging ? "oe-dragging" : ""} ${isDropTarget ? "oe-drop-target" : ""}`,
             "data-selected": isSelected ? "true" : "false",
             "data-label": label,
             "data-node-id": node.id,
-            onClick: handleClick,
+            onClick: (e: React.MouseEvent) => { e.stopPropagation(); selectNode(node.id); },
+            ...listeners,
+            ...attributes,
         },
         renderContent()
     );
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function getEmptyLabel(type: string): string {
+    switch (type) {
+        case "container":
+            return "+ Add component";
+        case "section":
+            return "+ Add to section";
+        case "row":
+            return "+ Add column";
+        case "column":
+            return "+ Add content";
+        default:
+            return "+ Drop here";
+    }
 }
 
 // ─── Visual Mode ─────────────────────────────────────────────────────────────
@@ -272,7 +360,11 @@ function VisualCanvas() {
         React.createElement(
             "div",
             { className: "oe-canvas-inner" },
-            React.createElement(CanvasNode, { node: document.body })
+            React.createElement(CanvasNode, {
+                node: document.body,
+                parentId: "__root__",
+                index: 0,
+            })
         )
     );
 }

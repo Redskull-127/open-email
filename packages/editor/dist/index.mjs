@@ -1,7 +1,7 @@
 "use client";
 
 // src/components/email-editor.tsx
-import React10 from "react";
+import React11 from "react";
 
 // src/engine/editor-store.ts
 import React, {
@@ -307,342 +307,24 @@ function useNode(nodeId) {
   return findNode(document.body, nodeId);
 }
 
-// src/components/editor-toolbar.tsx
-import React4, { useCallback as useCallback2, useState } from "react";
-
-// src/renderer/json-renderer.ts
-function exportToJSON(document, pretty = true) {
-  return JSON.stringify(document, null, pretty ? 2 : void 0);
-}
-function importFromJSON(json) {
-  let parsed;
-  try {
-    parsed = JSON.parse(json);
-  } catch {
-    throw new Error("Invalid JSON string");
-  }
-  const doc = parsed;
-  if (!doc || typeof doc !== "object") {
-    throw new Error("Invalid document: must be an object");
-  }
-  if (doc.version !== 1) {
-    throw new Error(`Unsupported document version: ${doc.version}`);
-  }
-  if (!doc.body || !doc.body.type || !doc.body.id) {
-    throw new Error("Invalid document: body must have type and id");
-  }
-  if (!doc.meta || !doc.meta.title) {
-    throw new Error("Invalid document: meta.title is required");
-  }
-  const errors = validateDocument(doc);
-  if (errors.length > 0) {
-    throw new Error(`Invalid document:
-${errors.join("\n")}`);
-  }
-  return doc;
-}
-
-// src/renderer/html-renderer.ts
-import { render } from "@react-email/render";
-
-// src/renderer/react-email-renderer.ts
-import React2 from "react";
+// src/components/dnd/drag-drop-provider.tsx
+import React2, {
+  createContext as createContext2,
+  useContext as useContext2,
+  useState,
+  useCallback as useCallback2,
+  useMemo as useMemo2
+} from "react";
 import {
-  Html,
-  Body,
-  Container,
-  Section,
-  Row,
-  Column,
-  Text,
-  Heading,
-  Button,
-  Img,
-  Link,
-  Hr,
-  Head,
-  Preview
-} from "@react-email/components";
-var componentMap = {
-  container: Container,
-  section: Section,
-  row: Row,
-  column: Column,
-  text: Text,
-  heading: Heading,
-  button: Button,
-  image: Img,
-  link: Link,
-  hr: Hr
-};
-function resolveProps(props) {
-  const resolved = {};
-  const styleObj = {};
-  const STYLE_PROPS = /* @__PURE__ */ new Set([
-    "maxWidth",
-    "backgroundColor",
-    "color",
-    "borderRadius",
-    "borderColor",
-    "borderWidth",
-    "padding",
-    "margin",
-    "fontFamily",
-    "fontSize",
-    "fontWeight",
-    "lineHeight",
-    "textAlign",
-    "verticalAlign"
-  ]);
-  for (const [key, value] of Object.entries(props)) {
-    if (value === void 0 || value === null || value === "") continue;
-    if (key.startsWith("style.")) {
-      const styleProp = key.slice(6);
-      styleObj[styleProp] = value;
-    } else if (STYLE_PROPS.has(key)) {
-      styleObj[key] = value;
-    } else {
-      resolved[key] = value;
-    }
-  }
-  if (props.style && typeof props.style === "object") {
-    Object.assign(styleObj, props.style);
-  }
-  if (Object.keys(styleObj).length > 0) {
-    resolved.style = {
-      ...resolved.style ?? {},
-      ...styleObj
-    };
-  }
-  return resolved;
-}
-function renderNode(node) {
-  const Component = componentMap[node.type];
-  if (!Component) {
-    return React2.createElement(
-      "div",
-      { key: node.id, "data-unknown-type": node.type },
-      node.children?.map(renderNode)
-    );
-  }
-  const resolvedProps = resolveProps(node.props);
-  const { content, text, ...restProps } = resolvedProps;
-  if (node.type === "text" || node.type === "heading" || node.type === "link") {
-    return React2.createElement(
-      Component,
-      { key: node.id, ...restProps },
-      content ?? ""
-    );
-  }
-  if (node.type === "button") {
-    return React2.createElement(
-      Component,
-      { key: node.id, ...restProps },
-      text ?? ""
-    );
-  }
-  if (!node.children || node.children.length === 0) {
-    if (node.type === "spacer") {
-      return React2.createElement("div", {
-        key: node.id,
-        style: { height: resolvedProps.height ?? "20px" }
-      });
-    }
-    return React2.createElement(Component, { key: node.id, ...resolvedProps });
-  }
-  return React2.createElement(
-    Component,
-    { key: node.id, ...resolvedProps },
-    node.children.map(renderNode)
-  );
-}
-function renderToReactEmail(document) {
-  const bodyContent = renderNode(document.body);
-  return React2.createElement(
-    Html,
-    { lang: "en", dir: "ltr" },
-    React2.createElement(Head, null),
-    document.meta.previewText ? React2.createElement(Preview, null, document.meta.previewText) : null,
-    React2.createElement(
-      Body,
-      {
-        style: {
-          backgroundColor: "#f6f9fc",
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Ubuntu, sans-serif',
-          margin: "0",
-          padding: "0"
-        }
-      },
-      bodyContent
-    )
-  );
-}
-
-// src/renderer/html-renderer.ts
-async function renderToHTML(document) {
-  const element = renderToReactEmail(document);
-  const html = await render(element);
-  return html;
-}
-async function renderToPlainText(document) {
-  const element = renderToReactEmail(document);
-  const text = await render(element, { plainText: true });
-  return text;
-}
-
-// src/components/icons.tsx
-import React3 from "react";
-function icon(paths, viewBox = "0 0 24 24") {
-  return function Icon({ size = 16, className }) {
-    return React3.createElement("svg", {
-      width: size,
-      height: size,
-      viewBox,
-      fill: "none",
-      stroke: "currentColor",
-      strokeWidth: 2,
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-      className,
-      dangerouslySetInnerHTML: { __html: paths }
-    });
-  };
-}
-var Icons = {
-  box: icon('<rect x="3" y="3" width="18" height="18" rx="2"/>'),
-  layout: icon('<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/>'),
-  columns: icon('<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/>'),
-  sidebar: icon('<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/>'),
-  type: icon('<polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/>'),
-  heading: icon('<path d="M6 4v16"/><path d="M18 4v16"/><path d="M6 12h12"/>'),
-  mousePointer: icon('<path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/>'),
-  image: icon('<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>'),
-  externalLink: icon('<path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>'),
-  minus: icon('<line x1="5" y1="12" x2="19" y2="12"/>'),
-  moveVertical: icon('<polyline points="8 18 12 22 16 18"/><polyline points="8 6 12 2 16 6"/><line x1="12" y1="2" x2="12" y2="22"/>'),
-  eye: icon('<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'),
-  code: icon('<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>'),
-  monitor: icon('<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>'),
-  download: icon('<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'),
-  trash: icon('<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>'),
-  plus: icon('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
-  layers: icon('<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>'),
-  chevronRight: icon('<polyline points="9 18 15 12 9 6"/>'),
-  chevronDown: icon('<polyline points="6 9 12 15 18 9"/>'),
-  settings: icon('<circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2m-9-11h2m18 0h2M5.6 5.6l1.4 1.4m9.9 9.9l1.4 1.4M5.6 18.4l1.4-1.4M17 7l1.4-1.4"/>'),
-  copy: icon('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>')
-};
-function getIcon(name) {
-  return Icons[name] ?? Icons.box;
-}
-
-// src/components/editor-toolbar.tsx
-function EditorToolbar({
-  className,
-  modes = ["visual", "code", "preview"],
-  actions,
-  onExportHTML,
-  onExportJSON,
-  showExportJSON = true,
-  showExportHTML = true,
-  components = {}
-}) {
-  const { mode, setMode, document } = useEditor();
-  const [exporting, setExporting] = useState(false);
-  const modeLabels = {
-    visual: { label: "Visual", Icon: Icons.eye },
-    code: { label: "Code", Icon: Icons.code },
-    preview: { label: "Preview", Icon: Icons.monitor }
-  };
-  const handleExportHTML = useCallback2(async () => {
-    setExporting(true);
-    try {
-      const html = await renderToHTML(document);
-      if (onExportHTML) {
-        onExportHTML(html);
-      } else {
-        await navigator.clipboard.writeText(html);
-      }
-    } catch (err) {
-      console.error("Export HTML failed:", err);
-    } finally {
-      setExporting(false);
-    }
-  }, [document, onExportHTML]);
-  const handleExportJSON = useCallback2(() => {
-    const json = exportToJSON(document);
-    if (onExportJSON) {
-      onExportJSON(json);
-    } else {
-      navigator.clipboard.writeText(json);
-    }
-  }, [document, onExportJSON]);
-  const { ExportJSONButton, ExportHTMLButton } = components;
-  return React4.createElement(
-    "div",
-    { className: `oe-toolbar ${className ?? ""}` },
-    // Left section — mode switcher
-    React4.createElement(
-      "div",
-      { className: "oe-toolbar-section" },
-      React4.createElement(
-        "div",
-        { className: "oe-mode-switcher" },
-        ...modes.map((m) => {
-          const { label, Icon } = modeLabels[m];
-          return React4.createElement(
-            "button",
-            {
-              key: m,
-              className: "oe-mode-btn",
-              "data-active": mode === m ? "true" : "false",
-              onClick: () => setMode(m),
-              title: `${label} mode`
-            },
-            React4.createElement(Icon, { size: 14 }),
-            ` ${label}`
-          );
-        })
-      )
-    ),
-    // Right section — export actions
-    React4.createElement(
-      "div",
-      { className: "oe-toolbar-section" },
-      // Custom actions
-      actions,
-      // JSON Export
-      showExportJSON && (ExportJSONButton ? React4.createElement(ExportJSONButton, { onClick: handleExportJSON }) : React4.createElement(
-        "button",
-        {
-          className: "oe-btn",
-          onClick: handleExportJSON,
-          title: "Export JSON to clipboard"
-        },
-        React4.createElement(Icons.copy, { size: 14 }),
-        "JSON"
-      )),
-      // HTML Export
-      showExportHTML && (ExportHTMLButton ? React4.createElement(ExportHTMLButton, {
-        onClick: handleExportHTML,
-        loading: exporting
-      }) : React4.createElement(
-        "button",
-        {
-          className: "oe-btn oe-btn-primary",
-          onClick: handleExportHTML,
-          disabled: exporting,
-          title: "Export HTML to clipboard"
-        },
-        React4.createElement(Icons.download, { size: 14 }),
-        exporting ? "Exporting\u2026" : "Export HTML"
-      ))
-    )
-  );
-}
-
-// src/components/editor-sidebar.tsx
-import React7, { useState as useState3, useCallback as useCallback4 } from "react";
+  DndContext,
+  DragOverlay,
+  useSensor,
+  useSensors,
+  MouseSensor,
+  TouchSensor,
+  pointerWithin,
+  rectIntersection
+} from "@dnd-kit/core";
 
 // src/registry/component-registry.ts
 function createRegistry(definitions) {
@@ -1101,23 +783,527 @@ function getComponentDef(registry, type) {
   return registry.get(type);
 }
 
+// src/components/dnd/drag-drop-provider.tsx
+var DragDropCtx = createContext2({
+  activeId: null,
+  activeData: null,
+  overId: null
+});
+function useDragDrop() {
+  return useContext2(DragDropCtx);
+}
+var collisionDetection = (args) => {
+  const pointerResult = pointerWithin(args);
+  if (pointerResult.length > 0) return pointerResult;
+  return rectIntersection(args);
+};
+function DragDropProvider({ children }) {
+  const { addNode: addNode2, moveNode: moveNode2 } = useEditor();
+  const [activeId, setActiveId] = useState(null);
+  const [activeData, setActiveData] = useState(null);
+  const [overId, setOverId] = useState(null);
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+  );
+  const handleDragStart = useCallback2((e) => {
+    const data = e.active.data.current;
+    setActiveId(String(e.active.id));
+    setActiveData(data ?? null);
+  }, []);
+  const handleDragOver = useCallback2((e) => {
+    setOverId(e.over ? String(e.over.id) : null);
+  }, []);
+  const handleDragEnd = useCallback2(
+    (e) => {
+      const { active, over } = e;
+      const data = active.data.current;
+      const dropData = over?.data.current;
+      setActiveId(null);
+      setActiveData(null);
+      setOverId(null);
+      if (!over || !data || !dropData) return;
+      if (data.origin === "sidebar") {
+        const def = defaultRegistry.get(data.componentType);
+        if (!def) return;
+        const newNode = createNode(
+          def.type,
+          { ...def.defaultProps },
+          def.acceptsChildren ? [] : void 0
+        );
+        addNode2(dropData.parentId, newNode, dropData.index);
+        return;
+      }
+      if (data.origin === "canvas" || data.origin === "layers") {
+        const fromParent = data.parentId;
+        const fromIndex = data.index;
+        const toParent = dropData.parentId;
+        const toIndex = dropData.index;
+        if (fromParent === toParent && fromIndex === toIndex) return;
+        let adjustedIndex = toIndex;
+        if (fromParent === toParent && fromIndex < toIndex) {
+          adjustedIndex = toIndex - 1;
+        }
+        moveNode2(data.nodeId, toParent, adjustedIndex);
+      }
+    },
+    [addNode2, moveNode2]
+  );
+  const handleDragCancel = useCallback2(() => {
+    setActiveId(null);
+    setActiveData(null);
+    setOverId(null);
+  }, []);
+  const ctxValue = useMemo2(
+    () => ({ activeId, activeData, overId }),
+    [activeId, activeData, overId]
+  );
+  return React2.createElement(
+    DndContext,
+    {
+      sensors,
+      collisionDetection,
+      onDragStart: handleDragStart,
+      onDragOver: handleDragOver,
+      onDragEnd: handleDragEnd,
+      onDragCancel: handleDragCancel
+    },
+    React2.createElement(
+      DragDropCtx.Provider,
+      { value: ctxValue },
+      children
+    ),
+    // Drag overlay — generic floating ghost
+    React2.createElement(
+      DragOverlay,
+      { dropAnimation: null },
+      activeData ? React2.createElement(
+        "div",
+        { className: "oe-drag-overlay" },
+        activeData.label
+      ) : null
+    )
+  );
+}
+
+// src/components/editor-toolbar.tsx
+import React5, { useCallback as useCallback3, useState as useState2 } from "react";
+
+// src/renderer/json-renderer.ts
+function exportToJSON(document, pretty = true) {
+  return JSON.stringify(document, null, pretty ? 2 : void 0);
+}
+function importFromJSON(json) {
+  let parsed;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    throw new Error("Invalid JSON string");
+  }
+  const doc = parsed;
+  if (!doc || typeof doc !== "object") {
+    throw new Error("Invalid document: must be an object");
+  }
+  if (doc.version !== 1) {
+    throw new Error(`Unsupported document version: ${doc.version}`);
+  }
+  if (!doc.body || !doc.body.type || !doc.body.id) {
+    throw new Error("Invalid document: body must have type and id");
+  }
+  if (!doc.meta || !doc.meta.title) {
+    throw new Error("Invalid document: meta.title is required");
+  }
+  const errors = validateDocument(doc);
+  if (errors.length > 0) {
+    throw new Error(`Invalid document:
+${errors.join("\n")}`);
+  }
+  return doc;
+}
+
+// src/renderer/html-renderer.ts
+import { render } from "@react-email/render";
+
+// src/renderer/react-email-renderer.ts
+import React3 from "react";
+import {
+  Html,
+  Body,
+  Container,
+  Section,
+  Row,
+  Column,
+  Text,
+  Heading,
+  Button,
+  Img,
+  Link,
+  Hr,
+  Head,
+  Preview
+} from "@react-email/components";
+var componentMap = {
+  container: Container,
+  section: Section,
+  row: Row,
+  column: Column,
+  text: Text,
+  heading: Heading,
+  button: Button,
+  image: Img,
+  link: Link,
+  hr: Hr
+};
+function resolveProps(props) {
+  const resolved = {};
+  const styleObj = {};
+  const STYLE_PROPS = /* @__PURE__ */ new Set([
+    "maxWidth",
+    "backgroundColor",
+    "color",
+    "borderRadius",
+    "borderColor",
+    "borderWidth",
+    "padding",
+    "margin",
+    "fontFamily",
+    "fontSize",
+    "fontWeight",
+    "lineHeight",
+    "textAlign",
+    "verticalAlign"
+  ]);
+  for (const [key, value] of Object.entries(props)) {
+    if (value === void 0 || value === null || value === "") continue;
+    if (key.startsWith("style.")) {
+      const styleProp = key.slice(6);
+      styleObj[styleProp] = value;
+    } else if (STYLE_PROPS.has(key)) {
+      styleObj[key] = value;
+    } else {
+      resolved[key] = value;
+    }
+  }
+  if (props.style && typeof props.style === "object") {
+    Object.assign(styleObj, props.style);
+  }
+  if (Object.keys(styleObj).length > 0) {
+    resolved.style = {
+      ...resolved.style ?? {},
+      ...styleObj
+    };
+  }
+  return resolved;
+}
+function renderNode(node) {
+  const Component = componentMap[node.type];
+  if (!Component) {
+    return React3.createElement(
+      "div",
+      { key: node.id, "data-unknown-type": node.type },
+      node.children?.map(renderNode)
+    );
+  }
+  const resolvedProps = resolveProps(node.props);
+  const { content, text, ...restProps } = resolvedProps;
+  if (node.type === "text" || node.type === "heading" || node.type === "link") {
+    return React3.createElement(
+      Component,
+      { key: node.id, ...restProps },
+      content ?? ""
+    );
+  }
+  if (node.type === "button") {
+    return React3.createElement(
+      Component,
+      { key: node.id, ...restProps },
+      text ?? ""
+    );
+  }
+  if (!node.children || node.children.length === 0) {
+    if (node.type === "spacer") {
+      return React3.createElement("div", {
+        key: node.id,
+        style: { height: resolvedProps.height ?? "20px" }
+      });
+    }
+    return React3.createElement(Component, { key: node.id, ...resolvedProps });
+  }
+  return React3.createElement(
+    Component,
+    { key: node.id, ...resolvedProps },
+    node.children.map(renderNode)
+  );
+}
+function renderToReactEmail(document) {
+  const bodyContent = renderNode(document.body);
+  return React3.createElement(
+    Html,
+    { lang: "en", dir: "ltr" },
+    React3.createElement(Head, null),
+    document.meta.previewText ? React3.createElement(Preview, null, document.meta.previewText) : null,
+    React3.createElement(
+      Body,
+      {
+        style: {
+          backgroundColor: "#f6f9fc",
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Ubuntu, sans-serif',
+          margin: "0",
+          padding: "0"
+        }
+      },
+      bodyContent
+    )
+  );
+}
+
+// src/renderer/html-renderer.ts
+async function renderToHTML(document) {
+  const element = renderToReactEmail(document);
+  const html = await render(element);
+  return html;
+}
+async function renderToPlainText(document) {
+  const element = renderToReactEmail(document);
+  const text = await render(element, { plainText: true });
+  return text;
+}
+
+// src/components/icons.tsx
+import React4 from "react";
+function icon(paths, viewBox = "0 0 24 24") {
+  return function Icon({ size = 16, className }) {
+    return React4.createElement("svg", {
+      width: size,
+      height: size,
+      viewBox,
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: 2,
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      className,
+      dangerouslySetInnerHTML: { __html: paths }
+    });
+  };
+}
+var Icons = {
+  box: icon('<rect x="3" y="3" width="18" height="18" rx="2"/>'),
+  layout: icon('<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/>'),
+  columns: icon('<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/>'),
+  sidebar: icon('<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/>'),
+  type: icon('<polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/>'),
+  heading: icon('<path d="M6 4v16"/><path d="M18 4v16"/><path d="M6 12h12"/>'),
+  mousePointer: icon('<path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/>'),
+  image: icon('<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>'),
+  externalLink: icon('<path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>'),
+  minus: icon('<line x1="5" y1="12" x2="19" y2="12"/>'),
+  moveVertical: icon('<polyline points="8 18 12 22 16 18"/><polyline points="8 6 12 2 16 6"/><line x1="12" y1="2" x2="12" y2="22"/>'),
+  eye: icon('<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'),
+  code: icon('<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>'),
+  monitor: icon('<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>'),
+  download: icon('<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'),
+  trash: icon('<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>'),
+  plus: icon('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
+  layers: icon('<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>'),
+  chevronRight: icon('<polyline points="9 18 15 12 9 6"/>'),
+  chevronDown: icon('<polyline points="6 9 12 15 18 9"/>'),
+  settings: icon('<circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2m-9-11h2m18 0h2M5.6 5.6l1.4 1.4m9.9 9.9l1.4 1.4M5.6 18.4l1.4-1.4M17 7l1.4-1.4"/>'),
+  copy: icon('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>')
+};
+function getIcon(name) {
+  return Icons[name] ?? Icons.box;
+}
+
+// src/components/editor-toolbar.tsx
+function EditorToolbar({
+  className,
+  modes = ["visual", "code", "preview"],
+  actions,
+  onExportHTML,
+  onExportJSON,
+  showExportJSON = true,
+  showExportHTML = true,
+  components = {}
+}) {
+  const { mode, setMode, document } = useEditor();
+  const [exporting, setExporting] = useState2(false);
+  const modeLabels = {
+    visual: { label: "Visual", Icon: Icons.eye },
+    code: { label: "Code", Icon: Icons.code },
+    preview: { label: "Preview", Icon: Icons.monitor }
+  };
+  const handleExportHTML = useCallback3(async () => {
+    setExporting(true);
+    try {
+      const html = await renderToHTML(document);
+      if (onExportHTML) {
+        onExportHTML(html);
+      } else {
+        await navigator.clipboard.writeText(html);
+      }
+    } catch (err) {
+      console.error("Export HTML failed:", err);
+    } finally {
+      setExporting(false);
+    }
+  }, [document, onExportHTML]);
+  const handleExportJSON = useCallback3(() => {
+    const json = exportToJSON(document);
+    if (onExportJSON) {
+      onExportJSON(json);
+    } else {
+      navigator.clipboard.writeText(json);
+    }
+  }, [document, onExportJSON]);
+  const { ExportJSONButton, ExportHTMLButton } = components;
+  return React5.createElement(
+    "div",
+    { className: `oe-toolbar ${className ?? ""}` },
+    // Left section — mode switcher
+    React5.createElement(
+      "div",
+      { className: "oe-toolbar-section" },
+      React5.createElement(
+        "div",
+        { className: "oe-mode-switcher" },
+        ...modes.map((m) => {
+          const { label, Icon } = modeLabels[m];
+          return React5.createElement(
+            "button",
+            {
+              key: m,
+              className: "oe-mode-btn",
+              "data-active": mode === m ? "true" : "false",
+              onClick: () => setMode(m),
+              title: `${label} mode`
+            },
+            React5.createElement(Icon, { size: 14 }),
+            ` ${label}`
+          );
+        })
+      )
+    ),
+    // Right section — export actions
+    React5.createElement(
+      "div",
+      { className: "oe-toolbar-section" },
+      // Custom actions
+      actions,
+      // JSON Export
+      showExportJSON && (ExportJSONButton ? React5.createElement(ExportJSONButton, { onClick: handleExportJSON }) : React5.createElement(
+        "button",
+        {
+          className: "oe-btn",
+          onClick: handleExportJSON,
+          title: "Export JSON to clipboard"
+        },
+        React5.createElement(Icons.copy, { size: 14 }),
+        "JSON"
+      )),
+      // HTML Export
+      showExportHTML && (ExportHTMLButton ? React5.createElement(ExportHTMLButton, {
+        onClick: handleExportHTML,
+        loading: exporting
+      }) : React5.createElement(
+        "button",
+        {
+          className: "oe-btn oe-btn-primary",
+          onClick: handleExportHTML,
+          disabled: exporting,
+          title: "Export HTML to clipboard"
+        },
+        React5.createElement(Icons.download, { size: 14 }),
+        exporting ? "Exporting\u2026" : "Export HTML"
+      ))
+    )
+  );
+}
+
+// src/components/editor-sidebar.tsx
+import React8, { useState as useState4, useCallback as useCallback5 } from "react";
+
 // src/components/component-card.tsx
-import React5 from "react";
+import React6 from "react";
+
+// src/components/dnd/dnd-hooks.tsx
+import { useMemo as useMemo3 } from "react";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
+function useSidebarDraggable(componentType, label) {
+  const data = useMemo3(
+    () => ({ origin: "sidebar", componentType, label }),
+    [componentType, label]
+  );
+  return useDraggable({
+    id: `sidebar-${componentType}`,
+    data
+  });
+}
+function useNodeDraggable(nodeId, parentId, index, label, origin) {
+  const data = useMemo3(
+    () => ({ origin, nodeId, parentId, index, label }),
+    [origin, nodeId, parentId, index, label]
+  );
+  return useDraggable({
+    id: `${origin}-${nodeId}`,
+    data
+  });
+}
+function useDropZone(parentId, index) {
+  const data = useMemo3(
+    () => ({ parentId, index }),
+    [parentId, index]
+  );
+  return useDroppable({
+    id: `dropzone-${parentId}-${index}`,
+    data
+  });
+}
+function useContainerDropZone(containerId) {
+  const data = useMemo3(
+    () => ({ parentId: containerId, index: 0 }),
+    [containerId]
+  );
+  return useDroppable({
+    id: `container-${containerId}`,
+    data
+  });
+}
+function useNodeDroppable(nodeId, parentId, index, acceptsChildren) {
+  const data = useMemo3(
+    () => acceptsChildren ? { parentId: nodeId, index: 0 } : { parentId, index: index + 1 },
+    // drop after this node
+    [acceptsChildren, nodeId, parentId, index]
+  );
+  return useDroppable({
+    id: `node-drop-${nodeId}`,
+    data
+  });
+}
+
+// src/components/component-card.tsx
 function ComponentCard({ definition, onClick, className }) {
   const Icon = getIcon(definition.icon);
-  return React5.createElement(
+  const { attributes, listeners, setNodeRef, isDragging } = useSidebarDraggable(
+    definition.type,
+    definition.label
+  );
+  return React6.createElement(
     "button",
     {
-      className: `oe-component-card ${className ?? ""}`,
+      ref: setNodeRef,
+      className: `oe-component-card ${isDragging ? "oe-dragging" : ""} ${className ?? ""}`,
       onClick: () => onClick(definition),
-      title: definition.description
+      title: definition.description,
+      ...listeners,
+      ...attributes
     },
-    React5.createElement(
+    React6.createElement(
       "span",
       { className: "oe-component-card-icon" },
-      React5.createElement(Icon, { size: 18 })
+      React6.createElement(Icon, { size: 18 })
     ),
-    React5.createElement(
+    React6.createElement(
       "span",
       { className: "oe-component-card-label" },
       definition.label
@@ -1126,78 +1312,122 @@ function ComponentCard({ definition, onClick, className }) {
 }
 
 // src/components/layer-tree.tsx
-import React6, { useState as useState2, useCallback as useCallback3 } from "react";
-function LayerNode({ node, depth = 0 }) {
+import React7, { useState as useState3, useCallback as useCallback4 } from "react";
+function LayerDropIndicator({ parentId, index, depth }) {
+  const { setNodeRef, isOver } = useDropZone(parentId, index);
+  return React7.createElement("li", {
+    ref: setNodeRef,
+    className: `oe-layer-drop-indicator ${isOver ? "oe-layer-drop-indicator-active" : ""}`,
+    style: { paddingLeft: `${depth * 16 + 8}px` }
+  });
+}
+function LayerNode({ node, parentId, index, depth = 0 }) {
   const { selectedNodeId, selectNode } = useEditor();
-  const [expanded, setExpanded] = useState2(true);
+  const [expanded, setExpanded] = useState3(true);
   const isSelected = selectedNodeId === node.id;
   const hasChildren = node.children && node.children.length > 0;
   const def = defaultRegistry.get(node.type);
   const Icon = getIcon(def?.icon ?? "box");
-  const handleClick = useCallback3(
+  const label = def?.label ?? node.type;
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setDragRef,
+    isDragging
+  } = useNodeDraggable(node.id, parentId, index, label, "layers");
+  const handleClick = useCallback4(
     (e) => {
       e.stopPropagation();
       selectNode(node.id);
     },
     [node.id, selectNode]
   );
-  const toggleExpand = useCallback3(
+  const toggleExpand = useCallback4(
     (e) => {
       e.stopPropagation();
       setExpanded((prev) => !prev);
     },
     []
   );
-  let label = def?.label ?? node.type;
+  let displayLabel = label;
   const content = node.props.content ?? node.props.text ?? "";
   if (content) {
-    label += `: ${content.slice(0, 20)}${content.length > 20 ? "\u2026" : ""}`;
+    displayLabel += `: ${content.slice(0, 20)}${content.length > 20 ? "\u2026" : ""}`;
   }
-  return React6.createElement(
+  const childElements = [];
+  if (hasChildren && expanded) {
+    childElements.push(
+      React7.createElement(LayerDropIndicator, {
+        key: `ldrop-${node.id}-0`,
+        parentId: node.id,
+        index: 0,
+        depth: depth + 1
+      })
+    );
+    node.children.forEach((child, i) => {
+      childElements.push(
+        React7.createElement(LayerNode, {
+          key: child.id,
+          node: child,
+          parentId: node.id,
+          index: i,
+          depth: depth + 1
+        })
+      );
+      childElements.push(
+        React7.createElement(LayerDropIndicator, {
+          key: `ldrop-${node.id}-${i + 1}`,
+          parentId: node.id,
+          index: i + 1,
+          depth: depth + 1
+        })
+      );
+    });
+  }
+  return React7.createElement(
     "li",
-    { className: "oe-layer-item" },
-    React6.createElement(
+    {
+      ref: setDragRef,
+      className: `oe-layer-item ${isDragging ? "oe-dragging" : ""}`,
+      ...attributes
+    },
+    React7.createElement(
       "div",
       {
         className: "oe-layer-item-content",
         "data-selected": isSelected ? "true" : "false",
         onClick: handleClick,
-        style: { paddingLeft: `${depth * 16 + 8}px` }
+        style: { paddingLeft: `${depth * 16 + 8}px` },
+        ...listeners
       },
-      hasChildren ? React6.createElement(
+      hasChildren ? React7.createElement(
         "span",
         {
           className: "oe-layer-item-icon",
           onClick: toggleExpand,
           style: { cursor: "pointer" }
         },
-        expanded ? React6.createElement(Icons.chevronDown, { size: 12 }) : React6.createElement(Icons.chevronRight, { size: 12 })
-      ) : React6.createElement("span", {
+        expanded ? React7.createElement(Icons.chevronDown, { size: 12 }) : React7.createElement(Icons.chevronRight, { size: 12 })
+      ) : React7.createElement("span", {
         className: "oe-layer-item-icon",
         style: { width: 12 }
       }),
-      React6.createElement(Icon, { size: 12 }),
-      React6.createElement("span", { className: "oe-layer-item-label" }, label)
+      React7.createElement(Icon, { size: 12 }),
+      React7.createElement("span", { className: "oe-layer-item-label" }, displayLabel)
     ),
-    hasChildren && expanded ? React6.createElement(
-      "ul",
-      { className: "oe-layer-children" },
-      node.children.map(
-        (child) => React6.createElement(LayerNode, {
-          key: child.id,
-          node: child,
-          depth: depth + 1
-        })
-      )
-    ) : null
+    childElements.length > 0 ? React7.createElement("ul", { className: "oe-layer-children" }, ...childElements) : null
   );
 }
 function LayerTree({ className }) {
   const { document } = useEditor();
-  return React6.createElement(
+  return React7.createElement(
     "ul",
     { className: `oe-layer-tree ${className ?? ""}` },
-    React6.createElement(LayerNode, { node: document.body })
+    React7.createElement(LayerNode, {
+      node: document.body,
+      parentId: "__root__",
+      index: 0
+    })
   );
 }
 
@@ -1207,11 +1437,11 @@ function EditorSidebar({
   registry,
   defaultTab = "components"
 }) {
-  const [activeTab, setActiveTab] = useState3(defaultTab);
+  const [activeTab, setActiveTab] = useState4(defaultTab);
   const { selectedNodeId, document, addNode: addNode2 } = useEditor();
   const reg = registry ?? defaultRegistry;
   const grouped = getComponentsByCategory(reg);
-  const handleAddComponent = useCallback4(
+  const handleAddComponent = useCallback5(
     (def) => {
       const newNode = createNode(
         def.type,
@@ -1228,54 +1458,54 @@ function EditorSidebar({
     content: "Content",
     utility: "Utility"
   };
-  return React7.createElement(
+  return React8.createElement(
     "div",
     { className: `oe-sidebar ${className ?? ""}` },
     // Tab buttons
-    React7.createElement(
+    React8.createElement(
       "div",
       { className: "oe-sidebar-tabs" },
-      React7.createElement(
+      React8.createElement(
         "button",
         {
           className: "oe-sidebar-tab",
           "data-active": activeTab === "components" ? "true" : "false",
           onClick: () => setActiveTab("components")
         },
-        React7.createElement(Icons.plus, { size: 14 }),
+        React8.createElement(Icons.plus, { size: 14 }),
         " Components"
       ),
-      React7.createElement(
+      React8.createElement(
         "button",
         {
           className: "oe-sidebar-tab",
           "data-active": activeTab === "layers" ? "true" : "false",
           onClick: () => setActiveTab("layers")
         },
-        React7.createElement(Icons.layers, { size: 14 }),
+        React8.createElement(Icons.layers, { size: 14 }),
         " Layers"
       )
     ),
     // Tab content
-    React7.createElement(
+    React8.createElement(
       "div",
       { className: "oe-sidebar-content" },
       activeTab === "components" ? (
         // Components palette
         Object.entries(grouped).map(
-          ([category, defs]) => React7.createElement(
+          ([category, defs]) => React8.createElement(
             "div",
             { key: category, className: "oe-component-category" },
-            React7.createElement(
+            React8.createElement(
               "div",
               { className: "oe-component-category-title" },
               categoryLabels[category] ?? category
             ),
-            React7.createElement(
+            React8.createElement(
               "div",
               { className: "oe-component-grid" },
               defs.map(
-                (def) => React7.createElement(ComponentCard, {
+                (def) => React8.createElement(ComponentCard, {
                   key: def.type,
                   definition: def,
                   onClick: handleAddComponent
@@ -1286,31 +1516,93 @@ function EditorSidebar({
         )
       ) : (
         // Layer tree
-        React7.createElement(LayerTree, null)
+        React8.createElement(LayerTree, null)
       )
     )
   );
 }
 
 // src/components/editor-canvas.tsx
-import React8, { useCallback as useCallback5, useState as useState4, useEffect, useRef, useMemo as useMemo2 } from "react";
-function CanvasNode({ node }) {
+import React9, { useCallback as useCallback6, useState as useState5, useEffect, useRef, useMemo as useMemo4 } from "react";
+function DropIndicator({ parentId, index }) {
+  const { setNodeRef, isOver } = useDropZone(parentId, index);
+  return React9.createElement("div", {
+    ref: setNodeRef,
+    className: `oe-drop-indicator ${isOver ? "oe-drop-indicator-active" : ""}`
+  });
+}
+function EmptyContainerDropZone({ containerId, label }) {
+  const { setNodeRef, isOver } = useContainerDropZone(containerId);
+  return React9.createElement("div", {
+    ref: setNodeRef,
+    className: `oe-drop-zone ${isOver ? "oe-drop-zone-active" : ""}`
+  }, label ?? "+ Drop component here");
+}
+function CanvasNode({ node, parentId, index }) {
   const { selectedNodeId, selectNode } = useEditor();
+  const { activeData } = useDragDrop();
   const isSelected = selectedNodeId === node.id;
   const def = defaultRegistry.get(node.type);
-  const handleClick = useCallback5(
-    (e) => {
-      e.stopPropagation();
-      selectNode(node.id);
-    },
-    [node.id, selectNode]
-  );
   const label = def?.label ?? node.type;
+  const hasChildren = node.children && node.children.length > 0;
+  const acceptsChildren = def?.acceptsChildren ?? false;
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setDragRef,
+    isDragging
+  } = useNodeDraggable(node.id, parentId, index, label, "canvas");
+  const {
+    setNodeRef: setDropRef,
+    isOver
+  } = useNodeDroppable(node.id, parentId, index, acceptsChildren);
+  const mergedRef = useCallback6(
+    (el) => {
+      setDragRef(el);
+      setDropRef(el);
+    },
+    [setDragRef, setDropRef]
+  );
+  const renderChildren = () => {
+    if (!acceptsChildren) return null;
+    if (!hasChildren) {
+      return React9.createElement(EmptyContainerDropZone, {
+        containerId: node.id,
+        label: getEmptyLabel(node.type)
+      });
+    }
+    const elements = [];
+    elements.push(
+      React9.createElement(DropIndicator, {
+        key: `drop-${node.id}-0`,
+        parentId: node.id,
+        index: 0
+      })
+    );
+    node.children.forEach((child, i) => {
+      elements.push(
+        React9.createElement(CanvasNode, {
+          key: child.id,
+          node: child,
+          parentId: node.id,
+          index: i
+        })
+      );
+      elements.push(
+        React9.createElement(DropIndicator, {
+          key: `drop-${node.id}-${i + 1}`,
+          parentId: node.id,
+          index: i + 1
+        })
+      );
+    });
+    return elements;
+  };
   const renderContent = () => {
     const style = node.props.style ?? {};
     switch (node.type) {
       case "container":
-        return React8.createElement(
+        return React9.createElement(
           "div",
           {
             style: {
@@ -1320,30 +1612,16 @@ function CanvasNode({ node }) {
               ...style
             }
           },
-          node.children?.map(
-            (child) => React8.createElement(CanvasNode, { key: child.id, node: child })
-          ),
-          (!node.children || node.children.length === 0) && React8.createElement(
-            "div",
-            { className: "oe-drop-zone" },
-            "+ Add component"
-          )
+          renderChildren()
         );
       case "section":
-        return React8.createElement(
+        return React9.createElement(
           "div",
           { style: { padding: "10px 0", ...style } },
-          node.children?.map(
-            (child) => React8.createElement(CanvasNode, { key: child.id, node: child })
-          ),
-          (!node.children || node.children.length === 0) && React8.createElement(
-            "div",
-            { className: "oe-drop-zone" },
-            "+ Add to section"
-          )
+          renderChildren()
         );
       case "row":
-        return React8.createElement(
+        return React9.createElement(
           "div",
           {
             style: {
@@ -1353,17 +1631,10 @@ function CanvasNode({ node }) {
               ...style
             }
           },
-          node.children?.map(
-            (child) => React8.createElement(CanvasNode, { key: child.id, node: child })
-          ),
-          (!node.children || node.children.length === 0) && React8.createElement(
-            "div",
-            { className: "oe-drop-zone", style: { flex: 1 } },
-            "+ Add column"
-          )
+          renderChildren()
         );
       case "column":
-        return React8.createElement(
+        return React9.createElement(
           "div",
           {
             style: {
@@ -1372,17 +1643,10 @@ function CanvasNode({ node }) {
               ...style
             }
           },
-          node.children?.map(
-            (child) => React8.createElement(CanvasNode, { key: child.id, node: child })
-          ),
-          (!node.children || node.children.length === 0) && React8.createElement(
-            "div",
-            { className: "oe-drop-zone" },
-            "+ Add content"
-          )
+          renderChildren()
         );
       case "text":
-        return React8.createElement(
+        return React9.createElement(
           "p",
           {
             style: {
@@ -1406,7 +1670,7 @@ function CanvasNode({ node }) {
           h5: "16px",
           h6: "14px"
         };
-        return React8.createElement(
+        return React9.createElement(
           Tag,
           {
             style: {
@@ -1422,10 +1686,10 @@ function CanvasNode({ node }) {
         );
       }
       case "button":
-        return React8.createElement(
+        return React9.createElement(
           "div",
           { style: { padding: "4px 0" } },
-          React8.createElement(
+          React9.createElement(
             "a",
             {
               style: {
@@ -1447,7 +1711,7 @@ function CanvasNode({ node }) {
           )
         );
       case "image":
-        return React8.createElement("img", {
+        return React9.createElement("img", {
           src: node.props.src ?? "https://placehold.co/600x200/e2e8f0/64748b?text=Image",
           alt: node.props.alt ?? "",
           width: node.props.width ?? void 0,
@@ -1460,7 +1724,7 @@ function CanvasNode({ node }) {
           }
         });
       case "link":
-        return React8.createElement(
+        return React9.createElement(
           "a",
           {
             href: "#",
@@ -1475,7 +1739,7 @@ function CanvasNode({ node }) {
           node.props.content ?? "Link"
         );
       case "hr":
-        return React8.createElement("hr", {
+        return React9.createElement("hr", {
           style: {
             border: "none",
             borderTop: `${node.props.borderWidth ?? "1px"} solid ${node.props.borderColor ?? "#e2e8f0"}`,
@@ -1484,55 +1748,80 @@ function CanvasNode({ node }) {
           }
         });
       case "spacer":
-        return React8.createElement("div", {
+        return React9.createElement("div", {
           style: {
             height: node.props.height ?? "20px",
             ...style
           }
         });
       default:
-        return React8.createElement(
+        return React9.createElement(
           "div",
           { style: { padding: "8px", color: "#94a3b8", fontSize: "12px" } },
           `[${node.type}]`
         );
     }
   };
-  return React8.createElement(
+  const isDropTarget = isOver && !isDragging;
+  return React9.createElement(
     "div",
     {
-      className: "oe-canvas-node",
+      ref: mergedRef,
+      className: `oe-canvas-node ${isDragging ? "oe-dragging" : ""} ${isDropTarget ? "oe-drop-target" : ""}`,
       "data-selected": isSelected ? "true" : "false",
       "data-label": label,
       "data-node-id": node.id,
-      onClick: handleClick
+      onClick: (e) => {
+        e.stopPropagation();
+        selectNode(node.id);
+      },
+      ...listeners,
+      ...attributes
     },
     renderContent()
   );
 }
+function getEmptyLabel(type) {
+  switch (type) {
+    case "container":
+      return "+ Add component";
+    case "section":
+      return "+ Add to section";
+    case "row":
+      return "+ Add column";
+    case "column":
+      return "+ Add content";
+    default:
+      return "+ Drop here";
+  }
+}
 function VisualCanvas() {
   const { document, selectNode } = useEditor();
-  const handleCanvasClick = useCallback5(() => {
+  const handleCanvasClick = useCallback6(() => {
     selectNode(null);
   }, [selectNode]);
-  return React8.createElement(
+  return React9.createElement(
     "div",
     { className: "oe-canvas", onClick: handleCanvasClick },
-    React8.createElement(
+    React9.createElement(
       "div",
       { className: "oe-canvas-inner" },
-      React8.createElement(CanvasNode, { node: document.body })
+      React9.createElement(CanvasNode, {
+        node: document.body,
+        parentId: "__root__",
+        index: 0
+      })
     )
   );
 }
 function CodeCanvas() {
   const { document, setDocument } = useEditor();
-  const [code, setCode] = useState4(() => exportToJSON(document));
-  const [error, setError] = useState4(null);
+  const [code, setCode] = useState5(() => exportToJSON(document));
+  const [error, setError] = useState5(null);
   useEffect(() => {
     setCode(exportToJSON(document));
   }, [document]);
-  const handleChange = useCallback5((e) => {
+  const handleChange = useCallback6((e) => {
     const newCode = e.target.value;
     setCode(newCode);
     try {
@@ -1543,10 +1832,10 @@ function CodeCanvas() {
       setError(err.message);
     }
   }, [setDocument]);
-  return React8.createElement(
+  return React9.createElement(
     "div",
     { className: "oe-code-editor" },
-    error && React8.createElement(
+    error && React9.createElement(
       "div",
       {
         style: {
@@ -1560,7 +1849,7 @@ function CodeCanvas() {
       "\u26A0 ",
       error
     ),
-    React8.createElement("textarea", {
+    React9.createElement("textarea", {
       className: "oe-code-textarea",
       value: code,
       onChange: handleChange,
@@ -1570,7 +1859,7 @@ function CodeCanvas() {
 }
 function PreviewCanvas() {
   const { document } = useEditor();
-  const [html, setHtml] = useState4("");
+  const [html, setHtml] = useState5("");
   const iframeRef = useRef(null);
   useEffect(() => {
     let cancelled = false;
@@ -1591,10 +1880,10 @@ function PreviewCanvas() {
       }
     }
   }, [html]);
-  return React8.createElement(
+  return React9.createElement(
     "div",
     { className: "oe-preview" },
-    React8.createElement("iframe", {
+    React9.createElement("iframe", {
       ref: iframeRef,
       className: "oe-preview-iframe",
       title: "Email Preview",
@@ -1604,25 +1893,25 @@ function PreviewCanvas() {
 }
 function EditorCanvas({ className }) {
   const { mode } = useEditor();
-  const content = useMemo2(() => {
+  const content = useMemo4(() => {
     switch (mode) {
       case "visual":
-        return React8.createElement(VisualCanvas, null);
+        return React9.createElement(VisualCanvas, null);
       case "code":
-        return React8.createElement(CodeCanvas, null);
+        return React9.createElement(CodeCanvas, null);
       case "preview":
-        return React8.createElement(PreviewCanvas, null);
+        return React9.createElement(PreviewCanvas, null);
       default:
-        return React8.createElement(VisualCanvas, null);
+        return React9.createElement(VisualCanvas, null);
     }
   }, [mode]);
   return content;
 }
 
 // src/components/properties-panel.tsx
-import React9, { useCallback as useCallback6, useMemo as useMemo3 } from "react";
+import React10, { useCallback as useCallback7, useMemo as useMemo5 } from "react";
 function PropertyField({ schema, value, onChange }) {
-  const handleChange = useCallback6(
+  const handleChange = useCallback7(
     (e) => {
       let newValue = e.target.value;
       if (schema.type === "number") {
@@ -1637,11 +1926,11 @@ function PropertyField({ schema, value, onChange }) {
   const stringValue = value !== void 0 && value !== null ? String(value) : "";
   switch (schema.type) {
     case "textarea":
-      return React9.createElement(
+      return React10.createElement(
         "div",
         { className: "oe-field" },
-        React9.createElement("label", { className: "oe-field-label" }, schema.label),
-        React9.createElement("textarea", {
+        React10.createElement("label", { className: "oe-field-label" }, schema.label),
+        React10.createElement("textarea", {
           className: "oe-field-textarea",
           value: stringValue,
           onChange: handleChange,
@@ -1649,20 +1938,20 @@ function PropertyField({ schema, value, onChange }) {
         })
       );
     case "select":
-      return React9.createElement(
+      return React10.createElement(
         "div",
         { className: "oe-field" },
-        React9.createElement("label", { className: "oe-field-label" }, schema.label),
-        React9.createElement(
+        React10.createElement("label", { className: "oe-field-label" }, schema.label),
+        React10.createElement(
           "select",
           {
             className: "oe-field-select",
             value: stringValue,
             onChange: handleChange
           },
-          React9.createElement("option", { value: "" }, "\u2014"),
+          React10.createElement("option", { value: "" }, "\u2014"),
           ...(schema.options ?? []).map(
-            (opt) => React9.createElement(
+            (opt) => React10.createElement(
               "option",
               { key: opt.value, value: opt.value },
               opt.label
@@ -1671,20 +1960,20 @@ function PropertyField({ schema, value, onChange }) {
         )
       );
     case "color":
-      return React9.createElement(
+      return React10.createElement(
         "div",
         { className: "oe-field" },
-        React9.createElement("label", { className: "oe-field-label" }, schema.label),
-        React9.createElement(
+        React10.createElement("label", { className: "oe-field-label" }, schema.label),
+        React10.createElement(
           "div",
           { className: "oe-field-color-wrapper" },
-          React9.createElement("input", {
+          React10.createElement("input", {
             type: "color",
             className: "oe-field-color-swatch",
             value: stringValue || "#000000",
             onChange: handleChange
           }),
-          React9.createElement("input", {
+          React10.createElement("input", {
             type: "text",
             className: "oe-field-input",
             value: stringValue,
@@ -1695,10 +1984,10 @@ function PropertyField({ schema, value, onChange }) {
         )
       );
     case "toggle":
-      return React9.createElement(
+      return React10.createElement(
         "div",
         { className: "oe-field" },
-        React9.createElement(
+        React10.createElement(
           "label",
           {
             className: "oe-field-label",
@@ -1709,7 +1998,7 @@ function PropertyField({ schema, value, onChange }) {
               cursor: "pointer"
             }
           },
-          React9.createElement("input", {
+          React10.createElement("input", {
             type: "checkbox",
             checked: !!value,
             onChange: handleChange
@@ -1718,11 +2007,11 @@ function PropertyField({ schema, value, onChange }) {
         )
       );
     case "number":
-      return React9.createElement(
+      return React10.createElement(
         "div",
         { className: "oe-field" },
-        React9.createElement("label", { className: "oe-field-label" }, schema.label),
-        React9.createElement("input", {
+        React10.createElement("label", { className: "oe-field-label" }, schema.label),
+        React10.createElement("input", {
           type: "number",
           className: "oe-field-input",
           value: stringValue,
@@ -1734,11 +2023,11 @@ function PropertyField({ schema, value, onChange }) {
     case "text":
     case "spacing":
     default:
-      return React9.createElement(
+      return React10.createElement(
         "div",
         { className: "oe-field" },
-        React9.createElement("label", { className: "oe-field-label" }, schema.label),
-        React9.createElement("input", {
+        React10.createElement("label", { className: "oe-field-label" }, schema.label),
+        React10.createElement("input", {
           type: schema.type === "url" ? "url" : "text",
           className: "oe-field-input",
           value: stringValue,
@@ -1767,11 +2056,11 @@ function PropertiesPanel({ className, registry }) {
   const { selectedNodeId, updateNode: updateNode2, deleteNode } = useEditor();
   const selectedNode = useSelectedNode();
   const reg = registry ?? defaultRegistry;
-  const definition = useMemo3(
+  const definition = useMemo5(
     () => selectedNode ? reg.get(selectedNode.type) : void 0,
     [selectedNode, reg]
   );
-  const handlePropertyChange = useCallback6(
+  const handlePropertyChange = useCallback7(
     (key, value) => {
       if (!selectedNodeId) return;
       if (key.includes(".")) {
@@ -1791,20 +2080,20 @@ function PropertiesPanel({ className, registry }) {
     },
     [selectedNodeId, selectedNode, updateNode2]
   );
-  const handleDelete = useCallback6(() => {
+  const handleDelete = useCallback7(() => {
     if (selectedNodeId) {
       deleteNode(selectedNodeId);
     }
   }, [selectedNodeId, deleteNode]);
   if (!selectedNode || !definition) {
-    return React9.createElement(
+    return React10.createElement(
       "div",
       { className: `oe-properties ${className ?? ""}` },
-      React9.createElement(
+      React10.createElement(
         "div",
         { className: "oe-properties-empty" },
-        React9.createElement(Icons.settings, { size: 32 }),
-        React9.createElement("p", null, "Select an element to edit its properties")
+        React10.createElement(Icons.settings, { size: 32 }),
+        React10.createElement("p", null, "Select an element to edit its properties")
       )
     );
   }
@@ -1820,19 +2109,19 @@ function PropertiesPanel({ className, registry }) {
     style: "Style"
   };
   const groupOrder = ["content", "layout", "style"];
-  return React9.createElement(
+  return React10.createElement(
     "div",
     { className: `oe-properties ${className ?? ""}` },
     // Header
-    React9.createElement(
+    React10.createElement(
       "div",
       { className: "oe-properties-header" },
-      React9.createElement(
+      React10.createElement(
         "span",
         { className: "oe-properties-title" },
         definition.label
       ),
-      React9.createElement(
+      React10.createElement(
         "button",
         {
           className: "oe-btn-icon",
@@ -1840,20 +2129,20 @@ function PropertiesPanel({ className, registry }) {
           title: "Delete element",
           style: { color: "var(--oe-danger)" }
         },
-        React9.createElement(Icons.trash, { size: 16 })
+        React10.createElement(Icons.trash, { size: 16 })
       )
     ),
     ...groupOrder.filter((g) => groups[g] && groups[g].length > 0).map(
-      (group) => React9.createElement(
+      (group) => React10.createElement(
         "div",
         { key: group, className: "oe-properties-group" },
-        React9.createElement(
+        React10.createElement(
           "div",
           { className: "oe-properties-group-title" },
           groupLabels[group] ?? group
         ),
         ...groups[group].map(
-          (prop) => React9.createElement(PropertyField, {
+          (prop) => React10.createElement(PropertyField, {
             key: prop.key,
             schema: prop,
             value: resolveValue(selectedNode.props, prop.key),
@@ -1891,42 +2180,47 @@ function EmailEditor({
     availableModes,
     registry
   } = config;
-  return React10.createElement(
+  return React11.createElement(
     EditorProvider,
     { initialDocument, onChange },
-    React10.createElement(
-      "div",
-      {
-        className: `open-email-editor ${className ?? ""}`,
-        "data-theme": theme,
-        style
-      },
-      // Toolbar
-      showToolbar && toolbar !== false && (toolbar ?? React10.createElement(EditorToolbar, {
-        modes: availableModes,
-        actions: toolbarActions,
-        showExportJSON,
-        showExportHTML,
-        components,
-        onExportHTML,
-        onExportJSON
-      })),
-      // Body (sidebar + canvas + properties)
-      React10.createElement(
+    React11.createElement(
+      DragDropProvider,
+      null,
+      React11.createElement(
         "div",
-        { className: "oe-editor-body" },
-        // Sidebar
-        showSidebar && sidebar !== false && (sidebar ?? React10.createElement(EditorSidebar, { registry })),
-        // Canvas
-        canvas ?? React10.createElement(EditorCanvas, null),
-        // Properties Panel
-        showProperties && propertiesPanel !== false && (propertiesPanel ?? React10.createElement(PropertiesPanel, { registry }))
+        {
+          className: `open-email-editor ${className ?? ""}`,
+          "data-theme": theme,
+          style
+        },
+        // Toolbar
+        showToolbar && toolbar !== false && (toolbar ?? React11.createElement(EditorToolbar, {
+          modes: availableModes,
+          actions: toolbarActions,
+          showExportJSON,
+          showExportHTML,
+          components,
+          onExportHTML,
+          onExportJSON
+        })),
+        // Body (sidebar + canvas + properties)
+        React11.createElement(
+          "div",
+          { className: "oe-editor-body" },
+          // Sidebar (Draggables)
+          showSidebar && sidebar !== false && (sidebar ?? React11.createElement(EditorSidebar, { registry })),
+          // Canvas (Droppables/Sortables)
+          canvas ?? React11.createElement(EditorCanvas, null),
+          // Properties Panel
+          showProperties && propertiesPanel !== false && (propertiesPanel ?? React11.createElement(PropertiesPanel, { registry }))
+        )
       )
     )
   );
 }
 export {
   ComponentCard,
+  DragDropProvider,
   EditorCanvas,
   EditorProvider,
   EditorSidebar,
@@ -1958,9 +2252,15 @@ export {
   renderToPlainText,
   renderToReactEmail,
   updateNode,
+  useContainerDropZone,
+  useDragDrop,
+  useDropZone,
   useEditor,
   useNode,
+  useNodeDraggable,
+  useNodeDroppable,
   useSelectedNode,
+  useSidebarDraggable,
   validateDocument
 };
 //# sourceMappingURL=index.mjs.map

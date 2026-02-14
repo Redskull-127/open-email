@@ -92,3 +92,20 @@ export type {
     SpacerProps,
     EmailNodeProps,
 } from "./types";
+
+// ─── Drag & Drop ─────────────────────────────────────────────────────────
+export {
+    DragDropProvider,
+    useDragDrop,
+    useSidebarDraggable,
+    useNodeDraggable,
+    useDropZone,
+    useContainerDropZone,
+    useNodeDroppable,
+} from "./components/dnd";
+export type {
+    SidebarDragData,
+    NodeDragData,
+    DropZoneData,
+    DragData,
+} from "./components/dnd";

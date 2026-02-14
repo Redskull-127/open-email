@@ -10,14 +10,15 @@ export function generateId(): string {
   return nanoid(10);
 }
 
-/** Create a new node with a generated ID */
+/** Create a new node. Pass an `id` for deterministic output (e.g. SSR), otherwise one is auto-generated. */
 export function createNode(
   type: EmailNode["type"],
   props: Record<string, unknown> = {},
-  children?: EmailNode[]
+  children?: EmailNode[],
+  id?: string
 ): EmailNode {
   return {
-    id: generateId(),
+    id: id || generateId(),
     type,
     props,
     ...(children ? { children } : {}),
@@ -138,9 +139,7 @@ export function moveNode(
   const node = findNode(root, nodeId);
   if (!node) return root;
 
-  // First remove the node
   const withoutNode = removeNode(root, nodeId);
-  // Then add it to the new parent
   return addNode(withoutNode, newParentId, node, index);
 }
 
@@ -169,7 +168,6 @@ export function validateDocument(doc: EmailDocument): string[] {
     errors.push("Document must have a body");
   }
 
-  // Check for duplicate IDs
   const allNodes = flattenTree(doc.body);
   const ids = new Set<string>();
   for (const node of allNodes) {

@@ -400,7 +400,7 @@ declare function useNode(nodeId: NodeId): EmailNode | null;
 
 /** Generate a unique node ID */
 declare function generateId(): string;
-/** Create a new node with a generated ID */
+/** Create a new node. Pass an `id` for deterministic output (e.g. SSR), otherwise one is auto-generated. */
 declare function createNode(type: EmailNode["type"], props?: Record<string, unknown>, children?: EmailNode[], id?: string): EmailNode;
 /** Deep clone a node and all its children, generating new IDs */
 declare function cloneNode(node: EmailNode): EmailNode;

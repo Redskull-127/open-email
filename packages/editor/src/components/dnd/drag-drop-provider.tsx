@@ -1,7 +1,5 @@
 // ─── Drag & Drop Provider ────────────────────────────────────────────────────
-// Unified DnD context using @dnd-kit. Wraps the entire editor body so that
-// sidebar → canvas, canvas → canvas and layer → layer drags all share
-// the same DndContext.
+// Unified DnD context using @dnd-kit wrapping the entire editor.
 
 import React, {
     createContext,
@@ -74,8 +72,7 @@ export function useDragDrop() {
     return useContext(DragDropCtx);
 }
 
-// ─── Collision detection ─────────────────────────────────────────────────────
-// Use pointerWithin for precision, fall back to rectIntersection.
+// Uses pointerWithin for precision, falls back to rectIntersection.
 
 const collisionDetection: CollisionDetection = (args) => {
     const pointerResult = pointerWithin(args);
@@ -96,13 +93,13 @@ export function DragDropProvider({ children }: DragDropProviderProps) {
     const [activeData, setActiveData] = useState<DragData | null>(null);
     const [overId, setOverId] = useState<string | null>(null);
 
-    // Sensors — distance constraint lets normal clicks go through
+
     const sensors = useSensors(
         useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
         useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
     );
 
-    // ── handlers ────────────────────────────────────────────────────
+
 
     const handleDragStart = useCallback((e: DragStartEvent) => {
         const data = e.active.data.current as DragData | undefined;
@@ -126,7 +123,7 @@ export function DragDropProvider({ children }: DragDropProviderProps) {
 
             if (!over || !data || !dropData) return;
 
-            // ── Sidebar → Canvas: create new node ──────────────────────
+            // Sidebar → Canvas: create new node
             if (data.origin === "sidebar") {
                 const def = defaultRegistry.get(data.componentType as EmailNodeType);
                 if (!def) return;
@@ -139,18 +136,17 @@ export function DragDropProvider({ children }: DragDropProviderProps) {
                 return;
             }
 
-            // ── Canvas/Layer reorder: move existing node ───────────────
+            // Canvas/Layer reorder: move existing node
             if (data.origin === "canvas" || data.origin === "layers") {
                 const fromParent = data.parentId;
                 const fromIndex = data.index;
                 const toParent = dropData.parentId;
                 const toIndex = dropData.index;
 
-                // Skip if dropped in the exact same position
+
                 if (fromParent === toParent && fromIndex === toIndex) return;
 
-                // Adjust target index when moving within the same parent
-                // If moving downward, the removal shifts indexes down by 1
+                // Adjust index when moving within same parent (removal shifts indexes)
                 let adjustedIndex = toIndex;
                 if (fromParent === toParent && fromIndex < toIndex) {
                     adjustedIndex = toIndex - 1;
@@ -168,7 +164,7 @@ export function DragDropProvider({ children }: DragDropProviderProps) {
         setOverId(null);
     }, []);
 
-    // ── value ───────────────────────────────────────────────────────
+
 
     const ctxValue = useMemo(
         () => ({ activeId, activeData, overId }),
@@ -193,7 +189,7 @@ export function DragDropProvider({ children }: DragDropProviderProps) {
             { value: ctxValue },
             children
         ),
-        // Drag overlay — generic floating ghost
+        // Drag overlay ghost
         React.createElement(
             DragOverlay,
             { dropAnimation: null },

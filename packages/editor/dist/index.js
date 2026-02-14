@@ -224,31 +224,6 @@ function createEmptyDocument(title = "Untitled Email") {
     ])
   };
 }
-function createStaticEmptyDocument(title = "Untitled Email") {
-  return {
-    version: 1,
-    meta: { title },
-    body: {
-      id: "root-container",
-      type: "container",
-      props: { maxWidth: "600px" },
-      children: [
-        {
-          id: "default-section",
-          type: "section",
-          props: {},
-          children: [
-            {
-              id: "default-text",
-              type: "text",
-              props: { content: "Start building your email..." }
-            }
-          ]
-        }
-      ]
-    }
-  };
-}
 
 // src/engine/editor-store.ts
 function editorReducer(state, action) {
@@ -336,7 +311,7 @@ function EditorProvider({
   children
 }) {
   const [state, dispatch] = (0, import_react.useReducer)(editorReducer, {
-    document: initialDocument ?? createStaticEmptyDocument(),
+    document: initialDocument ?? createEmptyDocument(),
     selectedNodeId: null,
     mode: "visual",
     isDirty: false
@@ -1024,7 +999,7 @@ function DragDropProvider({ children }) {
       { value: ctxValue },
       children
     ),
-    // Drag overlay — generic floating ghost
+    // Drag overlay ghost
     import_react2.default.createElement(
       import_core.DragOverlay,
       { dropAnimation: null },
@@ -1132,6 +1107,17 @@ function resolveProps(props) {
   return resolved;
 }
 function renderNode(node) {
+  if (node.type === "spacer") {
+    const resolvedProps2 = resolveProps(node.props);
+    const h = resolvedProps2.height ?? "20px";
+    return import_react3.default.createElement(
+      import_components.Section,
+      { key: node.id },
+      import_react3.default.createElement("div", {
+        style: { height: h, lineHeight: h, fontSize: "1px" }
+      }, "\xA0")
+    );
+  }
   const Component = componentMap[node.type];
   if (!Component) {
     return import_react3.default.createElement(
@@ -1157,12 +1143,6 @@ function renderNode(node) {
     );
   }
   if (!node.children || node.children.length === 0) {
-    if (node.type === "spacer") {
-      return import_react3.default.createElement("div", {
-        key: node.id,
-        style: { height: resolvedProps.height ?? "20px" }
-      });
-    }
     return import_react3.default.createElement(Component, { key: node.id, ...resolvedProps });
   }
   if (node.type === "column") {
@@ -1174,11 +1154,8 @@ function renderNode(node) {
         key: node.id,
         ...otherProps,
         style: { ...otherStyle, verticalAlign },
-        // Pass verticalAlign in style
         width,
-        // width is valid attribute for td
         height
-        // height is valid attribute for td
       },
       node.children.map(renderNode)
     );
@@ -1212,7 +1189,6 @@ function renderNode(node) {
         key: node.id,
         ...otherProps,
         style: { ...style, gap: void 0 }
-        // Remove gap from style prop as it's not supported
       },
       children
     );
@@ -1814,7 +1790,6 @@ function CanvasNode({ node, parentId, index }) {
           {
             style: {
               display: "flex",
-              // gap: "8px", // React Email (tables) doesn't support gap. Removed for WYSIWYG parity.
               width: "100%",
               ...style
             }

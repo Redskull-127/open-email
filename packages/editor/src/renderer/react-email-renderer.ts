@@ -2,10 +2,8 @@
 // Converts the JSON document schema to React Email component elements.
 
 import React from "react";
-import type { EmailDocument, EmailNode, ComponentRegistry } from "../types";
-import { defaultRegistry } from "../registry/component-registry";
+import type { EmailDocument, EmailNode } from "../types";
 
-// React Email component imports — we import them dynamically to keep this flexible
 import {
     Html,
     Body,
@@ -42,7 +40,7 @@ function resolveProps(props: Record<string, unknown>): Record<string, unknown> {
     const resolved: Record<string, unknown> = {};
     const styleObj: Record<string, unknown> = {};
 
-    // List of props that should be moved to style to avoid React warnings
+    // Props that should be forwarded as CSS style rather than DOM attributes
     const STYLE_PROPS = new Set([
         "maxWidth",
         "backgroundColor",
@@ -73,8 +71,7 @@ function resolveProps(props: Record<string, unknown>): Record<string, unknown> {
         }
     }
 
-    // Merge with existing style prop if present in resolved (though usually it's not)
-    // or if passed as a separate object in props
+    // Merge explicit style object
     if (props.style && typeof props.style === "object") {
         Object.assign(styleObj, props.style);
     }
@@ -88,12 +85,23 @@ function resolveProps(props: Record<string, unknown>): Record<string, unknown> {
 
     return resolved;
 }
-
 /** Render a single node to a React element */
 function renderNode(node: EmailNode): React.ReactNode {
+    // Spacer has no React Email component — render as table-safe forced-height block
+    if (node.type === "spacer") {
+        const resolvedProps = resolveProps(node.props);
+        const h = (resolvedProps.height as string) ?? "20px";
+        return React.createElement(
+            Section,
+            { key: node.id },
+            React.createElement("div", {
+                style: { height: h, lineHeight: h, fontSize: "1px" },
+            }, "\u00A0")
+        );
+    }
+
     const Component = componentMap[node.type];
     if (!Component) {
-        // Unknown component — render as div with warning
         return React.createElement(
             "div",
             { key: node.id, "data-unknown-type": node.type },
@@ -103,10 +111,10 @@ function renderNode(node: EmailNode): React.ReactNode {
 
     const resolvedProps = resolveProps(node.props);
 
-    // Handle components that have text content instead of children
+    // Components with text content instead of children
     const { content, text, ...restProps } = resolvedProps as any;
 
-    // Text/Heading use content, Button uses text
+
     if (node.type === "text" || node.type === "heading" || node.type === "link") {
         return React.createElement(
             Component,
@@ -123,18 +131,12 @@ function renderNode(node: EmailNode): React.ReactNode {
         );
     }
 
-    // Leaf nodes (hr, spacer, image)
+
     if (!node.children || node.children.length === 0) {
-        if (node.type === "spacer") {
-            return React.createElement("div", {
-                key: node.id,
-                style: { height: (resolvedProps.height as string) ?? "20px" },
-            });
-        }
         return React.createElement(Component, { key: node.id, ...resolvedProps });
     }
 
-    // Layout components with children
+
     if (node.type === "column") {
         const { style, ...otherProps } = resolvedProps as any;
         const { verticalAlign, width, height, ...otherStyle } = (style || {}) as any;
@@ -144,9 +146,9 @@ function renderNode(node: EmailNode): React.ReactNode {
             {
                 key: node.id,
                 ...otherProps,
-                style: { ...otherStyle, verticalAlign }, // Pass verticalAlign in style
-                width, // width is valid attribute for td
-                height, // height is valid attribute for td
+                style: { ...otherStyle, verticalAlign },
+                width,
+                height,
             },
             node.children.map(renderNode)
         );
@@ -154,19 +156,17 @@ function renderNode(node: EmailNode): React.ReactNode {
 
     if (node.type === "row") {
         const { style, ...otherProps } = resolvedProps as any;
-        // Handle simulated gap
         const gap = style?.gap;
         let children: React.ReactNode[] = node.children.map(renderNode);
 
         if (gap) {
-            // Parse gap value (e.g. "10px" -> 10)
             const gapValue = parseInt((gap as string).replace("px", ""), 10);
             if (!isNaN(gapValue) && gapValue > 0) {
                 const newChildren: React.ReactNode[] = [];
                 children.forEach((child, index) => {
                     newChildren.push(child);
                     if (index < children.length - 1) {
-                        // Add spacer cell
+                        // Spacer cell between columns
                         newChildren.push(
                             React.createElement("td", {
                                 key: `spacer-${index}`,
@@ -180,13 +180,12 @@ function renderNode(node: EmailNode): React.ReactNode {
             }
         }
 
-        // Ensure background color and other styles are passed to Row
         return React.createElement(
             Component,
             {
                 key: node.id,
                 ...otherProps,
-                style: { ...style, gap: undefined }, // Remove gap from style prop as it's not supported
+                style: { ...style, gap: undefined },
             },
             children
         );

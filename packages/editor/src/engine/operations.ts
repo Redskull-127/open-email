@@ -10,8 +10,7 @@ export function generateId(): string {
   return nanoid(10);
 }
 
-/** Create a new node with a generated ID */
-// ...
+/** Create a new node. Pass an `id` for deterministic output (e.g. SSR), otherwise one is auto-generated. */
 export function createNode(
   type: EmailNode["type"],
   props: Record<string, unknown> = {},
@@ -140,9 +139,7 @@ export function moveNode(
   const node = findNode(root, nodeId);
   if (!node) return root;
 
-  // First remove the node
   const withoutNode = removeNode(root, nodeId);
-  // Then add it to the new parent
   return addNode(withoutNode, newParentId, node, index);
 }
 
@@ -171,7 +168,6 @@ export function validateDocument(doc: EmailDocument): string[] {
     errors.push("Document must have a body");
   }
 
-  // Check for duplicate IDs
   const allNodes = flattenTree(doc.body);
   const ids = new Set<string>();
   for (const node of allNodes) {
@@ -194,31 +190,5 @@ export function createEmptyDocument(title = "Untitled Email"): EmailDocument {
         createNode("text", { content: "Start building your email..." }),
       ]),
     ]),
-  };
-}
-/** Create a default empty document with fixed IDs for SSR/Hydration */
-export function createStaticEmptyDocument(title = "Untitled Email"): EmailDocument {
-  return {
-    version: 1,
-    meta: { title },
-    body: {
-      id: "root-container",
-      type: "container",
-      props: { maxWidth: "600px" },
-      children: [
-        {
-          id: "default-section",
-          type: "section",
-          props: {},
-          children: [
-            {
-              id: "default-text",
-              type: "text",
-              props: { content: "Start building your email..." },
-            },
-          ],
-        },
-      ],
-    },
   };
 }

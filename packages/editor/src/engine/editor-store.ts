@@ -1,6 +1,5 @@
 // ─── Editor Store ────────────────────────────────────────────────────────────
 // React Context + useReducer state management.
-// No external deps — users get full hooks to build custom UIs.
 
 import React, {
   createContext,
@@ -25,7 +24,6 @@ import {
   moveNode as moveNodeOp,
   findNode,
   createEmptyDocument,
-  createStaticEmptyDocument,
 } from "./operations";
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
@@ -143,19 +141,16 @@ export function EditorProvider({
   children,
 }: EditorProviderProps) {
   const [state, dispatch] = useReducer(editorReducer, {
-    document: initialDocument ?? createStaticEmptyDocument(),
+    document: initialDocument ?? createEmptyDocument(),
     selectedNodeId: null,
     mode: "visual" as EditorMode,
     isDirty: false,
   });
 
-  // Wrap dispatch to call onChange
   const wrappedDispatch = useCallback(
     (action: EditorAction) => {
       dispatch(action);
-      // onChange fires on next tick since reducer is sync
       if (onChange && ["UPDATE_NODE", "ADD_NODE", "DELETE_NODE", "MOVE_NODE"].includes(action.type)) {
-        // We need to compute new state to pass to onChange
         const newState = editorReducer(state, action);
         onChange(newState.document);
       }

@@ -3,3 +3,5 @@ node_modules
 tsconfig.tsbuildinfo
 next-env.d.ts
 apps/docs
+.DS_Store
+.env

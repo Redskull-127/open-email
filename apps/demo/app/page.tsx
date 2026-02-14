@@ -132,7 +132,7 @@ export default function LandingPage() {
                     Star on GitHub
                 </a>
                 <a
-                    href="https://openemail.mintlify.app/"
+                    href="/docs"
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{

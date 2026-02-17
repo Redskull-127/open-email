@@ -1,16 +1,10 @@
-// ─── Tree Operations ─────────────────────────────────────────────────────────
-// Pure functions for manipulating the email document tree.
-// These are exported so users can build custom editor logic.
-
 import type { EmailNode, EmailDocument, NodeId } from "../types";
 import { nanoid } from "nanoid";
 
-/** Generate a unique node ID */
 export function generateId(): string {
   return nanoid(10);
 }
 
-/** Create a new node. Pass an `id` for deterministic output (e.g. SSR), otherwise one is auto-generated. */
 export function createNode(
   type: EmailNode["type"],
   props: Record<string, unknown> = {},
@@ -25,7 +19,6 @@ export function createNode(
   };
 }
 
-/** Deep clone a node and all its children, generating new IDs */
 export function cloneNode(node: EmailNode): EmailNode {
   return {
     ...node,
@@ -35,7 +28,6 @@ export function cloneNode(node: EmailNode): EmailNode {
   };
 }
 
-/** Find a node by ID in the tree (returns null if not found) */
 export function findNode(root: EmailNode, nodeId: NodeId): EmailNode | null {
   if (root.id === nodeId) return root;
   if (root.children) {
@@ -47,7 +39,6 @@ export function findNode(root: EmailNode, nodeId: NodeId): EmailNode | null {
   return null;
 }
 
-/** Find the parent of a node by ID */
 export function findParent(root: EmailNode, nodeId: NodeId): EmailNode | null {
   if (root.children) {
     for (const child of root.children) {
@@ -59,7 +50,6 @@ export function findParent(root: EmailNode, nodeId: NodeId): EmailNode | null {
   return null;
 }
 
-/** Get the path (array of IDs) from root to the given node */
 export function getNodePath(root: EmailNode, nodeId: NodeId): NodeId[] {
   if (root.id === nodeId) return [root.id];
   if (root.children) {
@@ -71,7 +61,6 @@ export function getNodePath(root: EmailNode, nodeId: NodeId): NodeId[] {
   return [];
 }
 
-/** Update a node's props immutably */
 export function updateNode(
   root: EmailNode,
   nodeId: NodeId,
@@ -92,7 +81,6 @@ export function updateNode(
   return root;
 }
 
-/** Add a child node to a parent immutably */
 export function addNode(
   root: EmailNode,
   parentId: NodeId,
@@ -117,7 +105,6 @@ export function addNode(
   return root;
 }
 
-/** Remove a node by ID immutably */
 export function removeNode(root: EmailNode, nodeId: NodeId): EmailNode {
   if (root.children) {
     const filtered = root.children.filter((child) => child.id !== nodeId);
@@ -129,7 +116,6 @@ export function removeNode(root: EmailNode, nodeId: NodeId): EmailNode {
   return root;
 }
 
-/** Move a node to a new parent immutably */
 export function moveNode(
   root: EmailNode,
   nodeId: NodeId,
@@ -143,7 +129,6 @@ export function moveNode(
   return addNode(withoutNode, newParentId, node, index);
 }
 
-/** Get a flat list of all nodes in the tree */
 export function flattenTree(root: EmailNode): EmailNode[] {
   const result: EmailNode[] = [root];
   if (root.children) {
@@ -154,7 +139,6 @@ export function flattenTree(root: EmailNode): EmailNode[] {
   return result;
 }
 
-/** Validate a document structure */
 export function validateDocument(doc: EmailDocument): string[] {
   const errors: string[] = [];
 
@@ -180,7 +164,6 @@ export function validateDocument(doc: EmailDocument): string[] {
   return errors;
 }
 
-/** Create a default empty document */
 export function createEmptyDocument(title = "Untitled Email"): EmailDocument {
   return {
     version: 1,

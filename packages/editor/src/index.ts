@@ -1,7 +1,3 @@
-// ─── Open Email Editor — Public API ──────────────────────────────────────────
-// Single entry point for the entire package.
-
-// ─── Components ──────────────────────────────────────────────────────────────
 export { EmailEditor } from "./components/email-editor";
 export type { EmailEditorProps } from "./components/email-editor";
 
@@ -17,6 +13,9 @@ export type { EditorCanvasProps } from "./components/editor-canvas";
 export { PropertiesPanel } from "./components/properties-panel";
 export type { PropertiesPanelProps } from "./components/properties-panel";
 
+export { VariableManager } from "./components/variable-manager";
+export type { VariableManagerProps } from "./components/variable-manager";
+
 export { LayerTree } from "./components/layer-tree";
 export type { LayerTreeProps } from "./components/layer-tree";
 
@@ -25,16 +24,15 @@ export type { ComponentCardProps } from "./components/component-card";
 
 export { Icons, getIcon } from "./components/icons";
 
-// ─── Engine (State & Hooks) ──────────────────────────────────────────────────
 export {
     EditorProvider,
     useEditor,
     useSelectedNode,
     useNode,
+    useVariables,
 } from "./engine/editor-store";
 export type { EditorProviderProps } from "./engine/editor-store";
 
-// ─── Operations (Tree Manipulation) ──────────────────────────────────────────
 export {
     createNode,
     cloneNode,
@@ -51,12 +49,12 @@ export {
     generateId,
 } from "./engine/operations";
 
-// ─── Renderer ────────────────────────────────────────────────────────────────
 export { renderToReactEmail } from "./renderer/react-email-renderer";
 export { renderToHTML, renderToPlainText } from "./renderer/html-renderer";
+export { interpolateVariables, hasVariables, extractVariableNames } from "./utils/variable-interpolation";
+export type { VariableDefinitions } from "./utils/variable-interpolation";
 export { exportToJSON, importFromJSON } from "./renderer/json-renderer";
 
-// ─── Registry ────────────────────────────────────────────────────────────────
 export {
     defaultRegistry,
     createRegistry,
@@ -65,12 +63,12 @@ export {
     getComponentDef,
 } from "./registry/component-registry";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
 export type {
     NodeId,
     EmailNodeType,
     EmailNode,
     EmailDocument,
+    VariableDefinition,
     EditorState,
     EditorAction,
     EditorMode,
@@ -93,7 +91,6 @@ export type {
     EmailNodeProps,
 } from "./types";
 
-// ─── Drag & Drop ─────────────────────────────────────────────────────────
 export {
     DragDropProvider,
     useDragDrop,

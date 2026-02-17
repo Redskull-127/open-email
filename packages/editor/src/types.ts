@@ -122,6 +122,11 @@ export interface EmailNode {
 
 // ─── Email Document ──────────────────────────────────────────────────────────
 
+/** Variable definition with fallback used when no data is provided at render time */
+export interface VariableDefinition {
+  fallback: string;
+}
+
 /** Root document representing a complete email template */
 export interface EmailDocument {
   /** Document version for schema migrations */
@@ -136,6 +141,8 @@ export interface EmailDocument {
   };
   /** Root body node containing the email tree */
   body: EmailNode;
+  /** Document-level variables: unique key → definition with fallback. Referenced in content as {{variableName}} */
+  variables?: Record<string, VariableDefinition>;
 }
 
 // ─── Editor Types ────────────────────────────────────────────────────────────
@@ -163,6 +170,7 @@ export type EditorAction =
   | { type: "ADD_NODE"; payload: { parentId: NodeId; node: EmailNode; index?: number } }
   | { type: "DELETE_NODE"; payload: NodeId }
   | { type: "MOVE_NODE"; payload: { nodeId: NodeId; newParentId: NodeId; index?: number } }
+  | { type: "UPDATE_VARIABLES"; payload: Record<string, VariableDefinition> }
   | { type: "SET_MODE"; payload: EditorMode }
   | { type: "MARK_CLEAN" };
 

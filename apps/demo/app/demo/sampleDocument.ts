@@ -11,11 +11,15 @@ export default function createSampleDocument(): EmailDocument {
             subject: "Welcome to Open Email!",
             previewText: "Check out our open-source email editor",
         },
+        variables: {
+            userName: { fallback: "there" },
+            companyName: { fallback: "Open Email" },
+        },
         body: createNode("container", { maxWidth: "600px", style: { backgroundColor: "#ffffff", padding: "24px" } }, [
             // Header
             createNode("section", { style: { backgroundColor: "#5046e5", padding: "32px 24px", borderRadius: "8px 8px 0 0" } }, [
                 createNode("heading", {
-                    content: "✉️ Open Email Editor",
+                    content: "✉️ {{companyName}} Editor",
                     as: "h1",
                     style: { color: "#ffffff", textAlign: "center", fontSize: "28px" },
                 }, [], "header-heading"),
@@ -28,13 +32,13 @@ export default function createSampleDocument(): EmailDocument {
             // Content
             createNode("section", { style: { padding: "32px 24px" } }, [
                 createNode("heading", {
-                    content: "Welcome aboard! 🎉",
+                    content: "Welcome aboard, {{userName}}! 🎉",
                     as: "h2",
                     style: { fontSize: "22px", color: "#111827" },
                 }, [], "content-heading"),
                 createNode("text", {
                     content:
-                        "Thanks for trying out Open Email Editor — the open-source, shadcn-style email editor built on top of React Email. This editor gives you full control over your email templates with a visual builder and code editor.",
+                        "Thanks for trying out {{companyName}} — the open-source, shadcn-style email editor built on top of React Email. This editor gives you full control over your email templates with a visual builder and code editor.",
                     style: { fontSize: "15px", lineHeight: "1.7", color: "#374151", marginTop: "12px" },
                 }, [], "content-text"),
             ], "content-section"),
@@ -77,7 +81,7 @@ export default function createSampleDocument(): EmailDocument {
             // Footer
             createNode("section", { style: { padding: "24px", textAlign: "center" } }, [
                 createNode("text", {
-                    content: "Open Email Editor — MIT Licensed",
+                    content: "{{companyName}} Editor — MIT Licensed",
                     style: { fontSize: "12px", color: "#9ca3af" },
                 }, [], "footer-text"),
                 createNode("link", {

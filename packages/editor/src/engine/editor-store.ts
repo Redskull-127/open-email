@@ -1,12 +1,11 @@
-// ─── Editor Store ────────────────────────────────────────────────────────────
-// React Context + useReducer state management.
-
 import React, {
   createContext,
   useContext,
   useReducer,
   useCallback,
   useMemo,
+  useRef,
+  useEffect,
   type ReactNode,
 } from "react";
 import type {
@@ -25,8 +24,6 @@ import {
   findNode,
   createEmptyDocument,
 } from "./operations";
-
-// ─── Reducer ─────────────────────────────────────────────────────────────────
 
 function editorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
@@ -99,6 +96,16 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
         isDirty: true,
       };
 
+    case "UPDATE_VARIABLES":
+      return {
+        ...state,
+        document: {
+          ...state.document,
+          variables: action.payload,
+        },
+        isDirty: true,
+      };
+
     case "SET_MODE":
       return {
         ...state,
@@ -116,16 +123,12 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
   }
 }
 
-// ─── Context ─────────────────────────────────────────────────────────────────
-
 interface EditorContextValue {
   state: EditorState;
   dispatch: React.Dispatch<EditorAction>;
 }
 
 const EditorContext = createContext<EditorContextValue | null>(null);
-
-// ─── Provider ────────────────────────────────────────────────────────────────
 
 export interface EditorProviderProps {
   /** Initial document to load */
@@ -134,6 +137,8 @@ export interface EditorProviderProps {
   onChange?: (document: EmailDocument) => void;
   children?: ReactNode;
 }
+
+const DIRTY_ACTIONS = new Set(["UPDATE_NODE", "ADD_NODE", "DELETE_NODE", "MOVE_NODE", "UPDATE_VARIABLES"]);
 
 export function EditorProvider({
   initialDocument,
@@ -147,15 +152,20 @@ export function EditorProvider({
     isDirty: false,
   });
 
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
   const wrappedDispatch = useCallback(
     (action: EditorAction) => {
       dispatch(action);
-      if (onChange && ["UPDATE_NODE", "ADD_NODE", "DELETE_NODE", "MOVE_NODE"].includes(action.type)) {
-        const newState = editorReducer(state, action);
+      if (onChange && DIRTY_ACTIONS.has(action.type)) {
+        const newState = editorReducer(stateRef.current, action);
         onChange(newState.document);
       }
     },
-    [onChange, state]
+    [onChange]
   );
 
   const value = useMemo(
@@ -166,9 +176,6 @@ export function EditorProvider({
   return React.createElement(EditorContext.Provider, { value }, children);
 }
 
-// ─── Hooks ───────────────────────────────────────────────────────────────────
-
-/** Access the full editor state and dispatch */
 export function useEditor() {
   const ctx = useContext(EditorContext);
   if (!ctx) {
@@ -179,59 +186,42 @@ export function useEditor() {
 
   const actions = useMemo(
     () => ({
-      /** Set the entire document */
       setDocument: (doc: EmailDocument) =>
         dispatch({ type: "SET_DOCUMENT", payload: doc }),
-
-      /** Select a node by ID */
       selectNode: (id: NodeId | null) =>
         dispatch({ type: "SELECT_NODE", payload: id }),
-
-      /** Update a node's props */
       updateNode: (id: NodeId, props: Record<string, unknown>) =>
         dispatch({ type: "UPDATE_NODE", payload: { id, props } }),
-
-      /** Add a new node as a child of parentId */
       addNode: (parentId: NodeId, node: EmailNode, index?: number) =>
         dispatch({ type: "ADD_NODE", payload: { parentId, node, index } }),
-
-      /** Delete a node by ID */
       deleteNode: (id: NodeId) =>
         dispatch({ type: "DELETE_NODE", payload: id }),
-
-      /** Move a node to a new parent */
       moveNode: (nodeId: NodeId, newParentId: NodeId, index?: number) =>
         dispatch({ type: "MOVE_NODE", payload: { nodeId, newParentId, index } }),
-
-      /** Switch editor mode */
+      updateVariables: (variables: Record<string, { fallback: string }>) =>
+        dispatch({ type: "UPDATE_VARIABLES", payload: variables }),
       setMode: (mode: EditorMode) =>
         dispatch({ type: "SET_MODE", payload: mode }),
-
-      /** Mark the document as clean (saved) */
       markClean: () => dispatch({ type: "MARK_CLEAN" }),
     }),
     [dispatch]
   );
 
-  return {
-    /** Current editor state */
-    ...state,
-    /** Editor action creators */
-    ...actions,
-    /** Raw dispatch for custom actions */
-    dispatch,
-  };
+  return { ...state, ...actions, dispatch };
 }
 
-/** Get the currently selected node */
 export function useSelectedNode(): EmailNode | null {
   const { document, selectedNodeId } = useEditor();
   if (!selectedNodeId) return null;
   return findNode(document.body, selectedNodeId);
 }
 
-/** Get a specific node by ID */
 export function useNode(nodeId: NodeId): EmailNode | null {
   const { document } = useEditor();
   return findNode(document.body, nodeId);
+}
+
+export function useVariables(): Record<string, { fallback: string }> {
+  const { document } = useEditor();
+  return document.variables ?? {};
 }

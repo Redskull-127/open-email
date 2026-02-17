@@ -1,8 +1,6 @@
-// ─── React Email Renderer ────────────────────────────────────────────────────
-// Converts the JSON document schema to React Email component elements.
-
 import React from "react";
 import type { EmailDocument, EmailNode } from "../types";
+import { interpolateVariables } from "../utils/variable-interpolation";
 
 import {
     Html,
@@ -21,7 +19,6 @@ import {
     Preview,
 } from "@react-email/components";
 
-/** Map node types to React Email components */
 const componentMap: Record<string, React.ComponentType<any>> = {
     container: Container,
     section: Section,
@@ -35,12 +32,10 @@ const componentMap: Record<string, React.ComponentType<any>> = {
     hr: Hr,
 };
 
-/** Extract style props from flat dotted keys (e.g. "style.color" → { style: { color: ... } }) */
 function resolveProps(props: Record<string, unknown>): Record<string, unknown> {
     const resolved: Record<string, unknown> = {};
     const styleObj: Record<string, unknown> = {};
 
-    // Props that should be forwarded as CSS style rather than DOM attributes
     const STYLE_PROPS = new Set([
         "maxWidth",
         "backgroundColor",
@@ -71,23 +66,30 @@ function resolveProps(props: Record<string, unknown>): Record<string, unknown> {
         }
     }
 
-    // Merge explicit style object
     if (props.style && typeof props.style === "object") {
         Object.assign(styleObj, props.style);
     }
 
     if (Object.keys(styleObj).length > 0) {
         resolved.style = {
-            ...(resolved.style as Record<string, unknown> ?? {}),
+            ...((resolved.style as Record<string, unknown>) ?? {}),
             ...styleObj,
         };
     }
 
     return resolved;
 }
-/** Render a single node to a React element */
-function renderNode(node: EmailNode): React.ReactNode {
-    // Spacer has no React Email component — render as table-safe forced-height block
+type RenderContext = {
+    variableData?: Record<string, string>;
+    variableDefinitions?: Record<string, { fallback: string }>;
+};
+
+function interpolate(ctx: RenderContext, value: string | undefined): string {
+    if (value == null) return "";
+    return interpolateVariables(value, ctx.variableData, ctx.variableDefinitions);
+}
+
+function renderNode(node: EmailNode, ctx: RenderContext): React.ReactNode {
     if (node.type === "spacer") {
         const resolvedProps = resolveProps(node.props);
         const h = (resolvedProps.height as string) ?? "20px";
@@ -105,21 +107,18 @@ function renderNode(node: EmailNode): React.ReactNode {
         return React.createElement(
             "div",
             { key: node.id, "data-unknown-type": node.type },
-            node.children?.map(renderNode)
+            node.children?.map((c) => renderNode(c, ctx))
         );
     }
 
     const resolvedProps = resolveProps(node.props);
-
-    // Components with text content instead of children
     const { content, text, ...restProps } = resolvedProps as any;
-
 
     if (node.type === "text" || node.type === "heading" || node.type === "link") {
         return React.createElement(
             Component,
             { key: node.id, ...restProps },
-            content ?? ""
+            interpolate(ctx, content as string | undefined)
         );
     }
 
@@ -127,15 +126,13 @@ function renderNode(node: EmailNode): React.ReactNode {
         return React.createElement(
             Component,
             { key: node.id, ...restProps },
-            text ?? ""
+            interpolate(ctx, text as string | undefined)
         );
     }
-
 
     if (!node.children || node.children.length === 0) {
         return React.createElement(Component, { key: node.id, ...resolvedProps });
     }
-
 
     if (node.type === "column") {
         const { style, ...otherProps } = resolvedProps as any;
@@ -150,14 +147,14 @@ function renderNode(node: EmailNode): React.ReactNode {
                 width,
                 height,
             },
-            node.children.map(renderNode)
+            node.children.map((c) => renderNode(c, ctx))
         );
     }
 
     if (node.type === "row") {
         const { style, ...otherProps } = resolvedProps as any;
         const gap = style?.gap;
-        let children: React.ReactNode[] = node.children.map(renderNode);
+        let children: React.ReactNode[] = node.children.map((c) => renderNode(c, ctx));
 
         if (gap) {
             const gapValue = parseInt((gap as string).replace("px", ""), 10);
@@ -166,7 +163,6 @@ function renderNode(node: EmailNode): React.ReactNode {
                 children.forEach((child, index) => {
                     newChildren.push(child);
                     if (index < children.length - 1) {
-                        // Spacer cell between columns
                         newChildren.push(
                             React.createElement("td", {
                                 key: `spacer-${index}`,
@@ -194,16 +190,19 @@ function renderNode(node: EmailNode): React.ReactNode {
     return React.createElement(
         Component,
         { key: node.id, ...resolvedProps },
-        node.children.map(renderNode)
+        node.children.map((c) => renderNode(c, ctx))
     );
 }
 
-/**
- * Convert an EmailDocument into a React Email element tree.
- * Returns a full <Html><Head/><Preview/><Body>...</Body></Html> element.
- */
-export function renderToReactEmail(document: EmailDocument): React.ReactElement {
-    const bodyContent = renderNode(document.body);
+export function renderToReactEmail(
+    document: EmailDocument,
+    variableData?: Record<string, string>
+): React.ReactElement {
+    const ctx: RenderContext = {
+        variableData,
+        variableDefinitions: document.variables,
+    };
+    const bodyContent = renderNode(document.body, ctx);
 
     return React.createElement(
         Html,

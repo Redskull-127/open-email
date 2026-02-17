@@ -1,7 +1,7 @@
 "use client";
 
 // src/components/email-editor.tsx
-import React11 from "react";
+import React16 from "react";
 
 // src/engine/editor-store.ts
 import React, {
@@ -9,7 +9,9 @@ import React, {
   useContext,
   useReducer,
   useCallback,
-  useMemo
+  useMemo,
+  useRef,
+  useEffect
 } from "react";
 
 // src/engine/operations.ts
@@ -219,6 +221,15 @@ function editorReducer(state, action) {
         },
         isDirty: true
       };
+    case "UPDATE_VARIABLES":
+      return {
+        ...state,
+        document: {
+          ...state.document,
+          variables: action.payload
+        },
+        isDirty: true
+      };
     case "SET_MODE":
       return {
         ...state,
@@ -234,6 +245,7 @@ function editorReducer(state, action) {
   }
 }
 var EditorContext = createContext(null);
+var DIRTY_ACTIONS = /* @__PURE__ */ new Set(["UPDATE_NODE", "ADD_NODE", "DELETE_NODE", "MOVE_NODE", "UPDATE_VARIABLES"]);
 function EditorProvider({
   initialDocument,
   onChange,
@@ -245,15 +257,19 @@ function EditorProvider({
     mode: "visual",
     isDirty: false
   });
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
   const wrappedDispatch = useCallback(
     (action) => {
       dispatch(action);
-      if (onChange && ["UPDATE_NODE", "ADD_NODE", "DELETE_NODE", "MOVE_NODE"].includes(action.type)) {
-        const newState = editorReducer(state, action);
+      if (onChange && DIRTY_ACTIONS.has(action.type)) {
+        const newState = editorReducer(stateRef.current, action);
         onChange(newState.document);
       }
     },
-    [onChange, state]
+    [onChange]
   );
   const value = useMemo(
     () => ({ state, dispatch: wrappedDispatch }),
@@ -269,33 +285,19 @@ function useEditor() {
   const { state, dispatch } = ctx;
   const actions = useMemo(
     () => ({
-      /** Set the entire document */
       setDocument: (doc) => dispatch({ type: "SET_DOCUMENT", payload: doc }),
-      /** Select a node by ID */
       selectNode: (id) => dispatch({ type: "SELECT_NODE", payload: id }),
-      /** Update a node's props */
       updateNode: (id, props) => dispatch({ type: "UPDATE_NODE", payload: { id, props } }),
-      /** Add a new node as a child of parentId */
       addNode: (parentId, node, index) => dispatch({ type: "ADD_NODE", payload: { parentId, node, index } }),
-      /** Delete a node by ID */
       deleteNode: (id) => dispatch({ type: "DELETE_NODE", payload: id }),
-      /** Move a node to a new parent */
       moveNode: (nodeId, newParentId, index) => dispatch({ type: "MOVE_NODE", payload: { nodeId, newParentId, index } }),
-      /** Switch editor mode */
+      updateVariables: (variables) => dispatch({ type: "UPDATE_VARIABLES", payload: variables }),
       setMode: (mode) => dispatch({ type: "SET_MODE", payload: mode }),
-      /** Mark the document as clean (saved) */
       markClean: () => dispatch({ type: "MARK_CLEAN" })
     }),
     [dispatch]
   );
-  return {
-    /** Current editor state */
-    ...state,
-    /** Editor action creators */
-    ...actions,
-    /** Raw dispatch for custom actions */
-    dispatch
-  };
+  return { ...state, ...actions, dispatch };
 }
 function useSelectedNode() {
   const { document, selectedNodeId } = useEditor();
@@ -305,6 +307,10 @@ function useSelectedNode() {
 function useNode(nodeId) {
   const { document } = useEditor();
   return findNode(document.body, nodeId);
+}
+function useVariables() {
+  const { document } = useEditor();
+  return document.variables ?? {};
 }
 
 // src/components/dnd/drag-drop-provider.tsx
@@ -957,7 +963,7 @@ function DragDropProvider({ children }) {
 }
 
 // src/components/editor-toolbar.tsx
-import React5, { useCallback as useCallback3, useState as useState2 } from "react";
+import React5, { useCallback as useCallback3, useState as useState2, useMemo as useMemo3 } from "react";
 
 // src/renderer/json-renderer.ts
 function exportToJSON(document, pretty = true) {
@@ -996,6 +1002,33 @@ import { render } from "@react-email/render";
 
 // src/renderer/react-email-renderer.ts
 import React3 from "react";
+
+// src/utils/variable-interpolation.ts
+var VARIABLE_PATTERN = /\{\{(\w+)\}\}/g;
+function interpolateVariables(content, variableData, variableDefinitions) {
+  if (typeof content !== "string") return "";
+  const defs = variableDefinitions ?? {};
+  const data = variableData ?? {};
+  return content.replace(VARIABLE_PATTERN, (_, key) => {
+    if (data[key] !== void 0 && data[key] !== "") return data[key];
+    return defs[key]?.fallback ?? "";
+  });
+}
+function hasVariables(content) {
+  return typeof content === "string" && VARIABLE_PATTERN.test(content);
+}
+function extractVariableNames(content) {
+  if (typeof content !== "string") return [];
+  const names = /* @__PURE__ */ new Set();
+  let match;
+  const re = new RegExp(VARIABLE_PATTERN);
+  while ((match = re.exec(content)) !== null) {
+    names.add(match[1]);
+  }
+  return Array.from(names);
+}
+
+// src/renderer/react-email-renderer.ts
 import {
   Html,
   Body,
@@ -1065,7 +1098,11 @@ function resolveProps(props) {
   }
   return resolved;
 }
-function renderNode(node) {
+function interpolate(ctx, value) {
+  if (value == null) return "";
+  return interpolateVariables(value, ctx.variableData, ctx.variableDefinitions);
+}
+function renderNode(node, ctx) {
   if (node.type === "spacer") {
     const resolvedProps2 = resolveProps(node.props);
     const h = resolvedProps2.height ?? "20px";
@@ -1082,7 +1119,7 @@ function renderNode(node) {
     return React3.createElement(
       "div",
       { key: node.id, "data-unknown-type": node.type },
-      node.children?.map(renderNode)
+      node.children?.map((c) => renderNode(c, ctx))
     );
   }
   const resolvedProps = resolveProps(node.props);
@@ -1091,14 +1128,14 @@ function renderNode(node) {
     return React3.createElement(
       Component,
       { key: node.id, ...restProps },
-      content ?? ""
+      interpolate(ctx, content)
     );
   }
   if (node.type === "button") {
     return React3.createElement(
       Component,
       { key: node.id, ...restProps },
-      text ?? ""
+      interpolate(ctx, text)
     );
   }
   if (!node.children || node.children.length === 0) {
@@ -1116,13 +1153,13 @@ function renderNode(node) {
         width,
         height
       },
-      node.children.map(renderNode)
+      node.children.map((c) => renderNode(c, ctx))
     );
   }
   if (node.type === "row") {
     const { style, ...otherProps } = resolvedProps;
     const gap = style?.gap;
-    let children = node.children.map(renderNode);
+    let children = node.children.map((c) => renderNode(c, ctx));
     if (gap) {
       const gapValue = parseInt(gap.replace("px", ""), 10);
       if (!isNaN(gapValue) && gapValue > 0) {
@@ -1155,11 +1192,15 @@ function renderNode(node) {
   return React3.createElement(
     Component,
     { key: node.id, ...resolvedProps },
-    node.children.map(renderNode)
+    node.children.map((c) => renderNode(c, ctx))
   );
 }
-function renderToReactEmail(document) {
-  const bodyContent = renderNode(document.body);
+function renderToReactEmail(document, variableData) {
+  const ctx = {
+    variableData,
+    variableDefinitions: document.variables
+  };
+  const bodyContent = renderNode(document.body, ctx);
   return React3.createElement(
     Html,
     { lang: "en", dir: "ltr" },
@@ -1181,13 +1222,13 @@ function renderToReactEmail(document) {
 }
 
 // src/renderer/html-renderer.ts
-async function renderToHTML(document) {
-  const element = renderToReactEmail(document);
+async function renderToHTML(document, variableData) {
+  const element = renderToReactEmail(document, variableData);
   const html = await render(element);
   return html;
 }
-async function renderToPlainText(document) {
-  const element = renderToReactEmail(document);
+async function renderToPlainText(document, variableData) {
+  const element = renderToReactEmail(document, variableData);
   const text = await render(element, { plainText: true });
   return text;
 }
@@ -1232,7 +1273,9 @@ var Icons = {
   chevronRight: icon('<polyline points="9 18 15 12 9 6"/>'),
   chevronDown: icon('<polyline points="6 9 12 15 18 9"/>'),
   settings: icon('<circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2m-9-11h2m18 0h2M5.6 5.6l1.4 1.4m9.9 9.9l1.4 1.4M5.6 18.4l1.4-1.4M17 7l1.4-1.4"/>'),
-  copy: icon('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>')
+  copy: icon('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>'),
+  check: icon('<polyline points="20 6 9 17 4 12"/>'),
+  close: icon('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>')
 };
 function getIcon(name) {
   return Icons[name] ?? Icons.box;
@@ -1243,6 +1286,7 @@ function EditorToolbar({
   className,
   modes = ["visual", "code", "preview"],
   actions,
+  variableData,
   onExportHTML,
   onExportJSON,
   showExportJSON = true,
@@ -1251,15 +1295,18 @@ function EditorToolbar({
 }) {
   const { mode, setMode, document } = useEditor();
   const [exporting, setExporting] = useState2(false);
-  const modeLabels = {
-    visual: { label: "Visual", Icon: Icons.eye },
-    code: { label: "Code", Icon: Icons.code },
-    preview: { label: "Preview", Icon: Icons.monitor }
-  };
+  const modeLabels = useMemo3(
+    () => ({
+      visual: { label: "Visual", Icon: Icons.eye },
+      code: { label: "Code", Icon: Icons.code },
+      preview: { label: "Preview", Icon: Icons.monitor }
+    }),
+    []
+  );
   const handleExportHTML = useCallback3(async () => {
     setExporting(true);
     try {
-      const html = await renderToHTML(document);
+      const html = await renderToHTML(document, variableData);
       if (onExportHTML) {
         onExportHTML(html);
       } else {
@@ -1270,7 +1317,7 @@ function EditorToolbar({
     } finally {
       setExporting(false);
     }
-  }, [document, onExportHTML]);
+  }, [document, variableData, onExportHTML]);
   const handleExportJSON = useCallback3(() => {
     const json = exportToJSON(document);
     if (onExportJSON) {
@@ -1283,7 +1330,6 @@ function EditorToolbar({
   return React5.createElement(
     "div",
     { className: `oe-toolbar ${className ?? ""}` },
-    // Left section — mode switcher
     React5.createElement(
       "div",
       { className: "oe-toolbar-section" },
@@ -1307,13 +1353,10 @@ function EditorToolbar({
         })
       )
     ),
-    // Right section — export actions
     React5.createElement(
       "div",
       { className: "oe-toolbar-section" },
-      // Custom actions
       actions,
-      // JSON Export
       showExportJSON && (ExportJSONButton ? React5.createElement(ExportJSONButton, { onClick: handleExportJSON }) : React5.createElement(
         "button",
         {
@@ -1324,7 +1367,6 @@ function EditorToolbar({
         React5.createElement(Icons.copy, { size: 14 }),
         "JSON"
       )),
-      // HTML Export
       showExportHTML && (ExportHTMLButton ? React5.createElement(ExportHTMLButton, {
         onClick: handleExportHTML,
         loading: exporting
@@ -1350,10 +1392,10 @@ import React8, { useState as useState4, useCallback as useCallback5 } from "reac
 import React6 from "react";
 
 // src/components/dnd/dnd-hooks.tsx
-import { useMemo as useMemo3 } from "react";
+import { useMemo as useMemo4 } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 function useSidebarDraggable(componentType, label) {
-  const data = useMemo3(
+  const data = useMemo4(
     () => ({ origin: "sidebar", componentType, label }),
     [componentType, label]
   );
@@ -1363,7 +1405,7 @@ function useSidebarDraggable(componentType, label) {
   });
 }
 function useNodeDraggable(nodeId, parentId, index, label, origin) {
-  const data = useMemo3(
+  const data = useMemo4(
     () => ({ origin, nodeId, parentId, index, label }),
     [origin, nodeId, parentId, index, label]
   );
@@ -1373,7 +1415,7 @@ function useNodeDraggable(nodeId, parentId, index, label, origin) {
   });
 }
 function useDropZone(parentId, index) {
-  const data = useMemo3(
+  const data = useMemo4(
     () => ({ parentId, index }),
     [parentId, index]
   );
@@ -1383,7 +1425,7 @@ function useDropZone(parentId, index) {
   });
 }
 function useContainerDropZone(containerId) {
-  const data = useMemo3(
+  const data = useMemo4(
     () => ({ parentId: containerId, index: 0 }),
     [containerId]
   );
@@ -1393,7 +1435,7 @@ function useContainerDropZone(containerId) {
   });
 }
 function useNodeDroppable(nodeId, parentId, index, acceptsChildren) {
-  const data = useMemo3(
+  const data = useMemo4(
     () => acceptsChildren ? { parentId: nodeId, index: 0 } : { parentId, index: index + 1 },
     // drop after this node
     [acceptsChildren, nodeId, parentId, index]
@@ -1646,7 +1688,7 @@ function EditorSidebar({
 }
 
 // src/components/editor-canvas.tsx
-import React9, { useCallback as useCallback6, useState as useState5, useEffect, useRef, useMemo as useMemo4 } from "react";
+import React9, { useCallback as useCallback6, useState as useState5, useEffect as useEffect2, useRef as useRef2, useMemo as useMemo5 } from "react";
 function DropIndicator({ parentId, index }) {
   const { setNodeRef, isOver } = useDropZone(parentId, index);
   return React9.createElement("div", {
@@ -1694,31 +1736,29 @@ function CanvasNode({ node, parentId, index }) {
         label: getEmptyLabel(node.type)
       });
     }
-    const elements = [];
-    elements.push(
+    const children = node.children;
+    const elements = [
       React9.createElement(DropIndicator, {
         key: `drop-${node.id}-0`,
         parentId: node.id,
         index: 0
       })
-    );
-    node.children.forEach((child, i) => {
+    ];
+    for (let i = 0; i < children.length; i++) {
       elements.push(
         React9.createElement(CanvasNode, {
-          key: child.id,
-          node: child,
+          key: children[i].id,
+          node: children[i],
           parentId: node.id,
           index: i
-        })
-      );
-      elements.push(
+        }),
         React9.createElement(DropIndicator, {
           key: `drop-${node.id}-${i + 1}`,
           parentId: node.id,
           index: i + 1
         })
       );
-    });
+    }
     return elements;
   };
   const renderContent = () => {
@@ -1948,7 +1988,7 @@ function CodeCanvas() {
   const { document, setDocument } = useEditor();
   const [code, setCode] = useState5(() => exportToJSON(document));
   const [error, setError] = useState5(null);
-  useEffect(() => {
+  useEffect2(() => {
     setCode(exportToJSON(document));
   }, [document]);
   const handleChange = useCallback6((e) => {
@@ -1987,20 +2027,20 @@ function CodeCanvas() {
     })
   );
 }
-function PreviewCanvas() {
+function PreviewCanvas({ variableData }) {
   const { document } = useEditor();
   const [html, setHtml] = useState5("");
-  const iframeRef = useRef(null);
-  useEffect(() => {
+  const iframeRef = useRef2(null);
+  useEffect2(() => {
     let cancelled = false;
-    renderToHTML(document).then((result) => {
+    renderToHTML(document, variableData).then((result) => {
       if (!cancelled) setHtml(result);
     });
     return () => {
       cancelled = true;
     };
-  }, [document]);
-  useEffect(() => {
+  }, [document, variableData]);
+  useEffect2(() => {
     if (iframeRef.current && html) {
       const doc = iframeRef.current.contentDocument;
       if (doc) {
@@ -2021,151 +2061,93 @@ function PreviewCanvas() {
     })
   );
 }
-function EditorCanvas({ className }) {
+function EditorCanvas({ className, variableData }) {
   const { mode } = useEditor();
-  const content = useMemo4(() => {
+  const content = useMemo5(() => {
     switch (mode) {
       case "visual":
         return React9.createElement(VisualCanvas, null);
       case "code":
         return React9.createElement(CodeCanvas, null);
       case "preview":
-        return React9.createElement(PreviewCanvas, null);
+        return React9.createElement(PreviewCanvas, { variableData });
       default:
         return React9.createElement(VisualCanvas, null);
     }
-  }, [mode]);
+  }, [mode, variableData]);
   return content;
 }
 
-// src/components/properties-panel.tsx
-import React10, { useCallback as useCallback7, useMemo as useMemo5 } from "react";
-function PropertyField({ schema, value, onChange }) {
-  const handleChange = useCallback7(
-    (e) => {
-      let newValue = e.target.value;
-      if (schema.type === "number") {
-        newValue = e.target.value === "" ? void 0 : Number(e.target.value);
-      } else if (schema.type === "toggle") {
-        newValue = e.target.checked;
-      }
-      onChange(schema.key, newValue);
-    },
-    [schema.key, schema.type, onChange]
+// src/components/properties-panel/properties-panel.tsx
+import React15, { useCallback as useCallback9, useMemo as useMemo7 } from "react";
+
+// src/utils/dom-helpers.ts
+function insertVariableIntoContent(existing, variableName) {
+  const insert = `{{${variableName}}}`;
+  const content = existing?.trim() || "";
+  return content ? `${content} ${insert}` : insert;
+}
+
+// src/components/properties-panel/properties-panel-empty.tsx
+import React10 from "react";
+function PropertiesPanelEmpty({ className }) {
+  return React10.createElement(
+    "div",
+    { className: `oe-properties ${className ?? ""}` },
+    React10.createElement(
+      "div",
+      { className: "oe-properties-empty" },
+      React10.createElement(Icons.settings, { size: 32 }),
+      React10.createElement(
+        "p",
+        null,
+        "Select an element to edit its properties"
+      )
+    )
   );
-  const stringValue = value !== void 0 && value !== null ? String(value) : "";
-  switch (schema.type) {
-    case "textarea":
-      return React10.createElement(
-        "div",
-        { className: "oe-field" },
-        React10.createElement("label", { className: "oe-field-label" }, schema.label),
-        React10.createElement("textarea", {
-          className: "oe-field-textarea",
-          value: stringValue,
-          onChange: handleChange,
-          placeholder: schema.placeholder ?? ""
-        })
-      );
-    case "select":
-      return React10.createElement(
-        "div",
-        { className: "oe-field" },
-        React10.createElement("label", { className: "oe-field-label" }, schema.label),
-        React10.createElement(
-          "select",
-          {
-            className: "oe-field-select",
-            value: stringValue,
-            onChange: handleChange
-          },
-          React10.createElement("option", { value: "" }, "\u2014"),
-          ...(schema.options ?? []).map(
-            (opt) => React10.createElement(
-              "option",
-              { key: opt.value, value: opt.value },
-              opt.label
-            )
-          )
-        )
-      );
-    case "color":
-      return React10.createElement(
-        "div",
-        { className: "oe-field" },
-        React10.createElement("label", { className: "oe-field-label" }, schema.label),
-        React10.createElement(
-          "div",
-          { className: "oe-field-color-wrapper" },
-          React10.createElement("input", {
-            type: "color",
-            className: "oe-field-color-swatch",
-            value: stringValue || "#000000",
-            onChange: handleChange
-          }),
-          React10.createElement("input", {
-            type: "text",
-            className: "oe-field-input",
-            value: stringValue,
-            onChange: handleChange,
-            placeholder: "#000000",
-            style: { flex: 1 }
-          })
-        )
-      );
-    case "toggle":
-      return React10.createElement(
-        "div",
-        { className: "oe-field" },
-        React10.createElement(
-          "label",
-          {
-            className: "oe-field-label",
-            style: {
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              cursor: "pointer"
-            }
-          },
-          React10.createElement("input", {
-            type: "checkbox",
-            checked: !!value,
-            onChange: handleChange
-          }),
-          schema.label
-        )
-      );
-    case "number":
-      return React10.createElement(
-        "div",
-        { className: "oe-field" },
-        React10.createElement("label", { className: "oe-field-label" }, schema.label),
-        React10.createElement("input", {
-          type: "number",
-          className: "oe-field-input",
-          value: stringValue,
-          onChange: handleChange,
-          placeholder: schema.placeholder ?? ""
-        })
-      );
-    case "url":
-    case "text":
-    case "spacing":
-    default:
-      return React10.createElement(
-        "div",
-        { className: "oe-field" },
-        React10.createElement("label", { className: "oe-field-label" }, schema.label),
-        React10.createElement("input", {
-          type: schema.type === "url" ? "url" : "text",
-          className: "oe-field-input",
-          value: stringValue,
-          onChange: handleChange,
-          placeholder: schema.placeholder ?? ""
-        })
-      );
-  }
+}
+
+// src/components/properties-panel/properties-panel-header.tsx
+import React11 from "react";
+function PropertiesPanelHeader({
+  title,
+  onDelete
+}) {
+  return React11.createElement(
+    "div",
+    { className: "oe-properties-header" },
+    React11.createElement(
+      "span",
+      { className: "oe-properties-title" },
+      title
+    ),
+    React11.createElement(
+      "button",
+      {
+        className: "oe-btn-icon",
+        onClick: onDelete,
+        title: "Delete element",
+        style: { color: "var(--oe-danger)" }
+      },
+      React11.createElement(Icons.trash, { size: 16 })
+    )
+  );
+}
+
+// src/components/properties-panel/variable-inserter.tsx
+import React12, { useCallback as useCallback7, useMemo as useMemo6, useState as useState6, useRef as useRef3, useEffect as useEffect3 } from "react";
+
+// src/components/properties-panel/utils.ts
+var CONTENT_NODE_TYPES = ["text", "heading", "link", "button"];
+var CONTENT_KEY = {
+  text: "content",
+  heading: "content",
+  link: "content",
+  button: "text"
+};
+var VARIABLE_KEY_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+function isValidVariableKey(key) {
+  return key.length > 0 && VARIABLE_KEY_REGEX.test(key);
 }
 function resolveValue(props, key) {
   if (key.includes(".")) {
@@ -2182,15 +2164,371 @@ function resolveValue(props, key) {
   }
   return props[key];
 }
+var GROUP_LABELS = {
+  content: "Content",
+  layout: "Layout",
+  style: "Style"
+};
+var GROUP_ORDER = ["content", "layout", "style"];
+
+// src/components/properties-panel/variable-inserter.tsx
+function VariableInserter({
+  selectedNodeId,
+  contentKey,
+  currentContent,
+  onInsert,
+  onCreateAndInsert
+}) {
+  const variables = useVariables();
+  const [variableSelectOpen, setVariableSelectOpen] = useState6(false);
+  const [variableSearch, setVariableSearch] = useState6("");
+  const [newVarName, setNewVarName] = useState6("");
+  const [newVarFallback, setNewVarFallback] = useState6("");
+  const [showCreateForm, setShowCreateForm] = useState6(false);
+  const searchInputRef = useRef3(null);
+  const comboboxRef = useRef3(null);
+  useEffect3(() => {
+    if (variableSelectOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [variableSelectOpen]);
+  useEffect3(() => {
+    const handleClickOutside = (e) => {
+      if (comboboxRef.current && !comboboxRef.current.contains(e.target)) {
+        setVariableSelectOpen(false);
+        setVariableSearch("");
+        setShowCreateForm(false);
+        setNewVarName("");
+        setNewVarFallback("");
+      }
+    };
+    if (variableSelectOpen) {
+      window.document.addEventListener("mousedown", handleClickOutside);
+      return () => window.document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [variableSelectOpen]);
+  const handleInsertVariable = useCallback7(
+    (variableName) => {
+      onInsert(variableName);
+      setVariableSelectOpen(false);
+      setVariableSearch("");
+      setShowCreateForm(false);
+    },
+    [onInsert]
+  );
+  const filteredVariables = useMemo6(() => {
+    const entries = Object.entries(variables);
+    const search = variableSearch.toLowerCase().trim();
+    if (!search) return entries;
+    return entries.filter(([name]) => name.toLowerCase().includes(search));
+  }, [variables, variableSearch]);
+  const variableCount = filteredVariables.length;
+  return React12.createElement(
+    "div",
+    { className: "oe-properties-group" },
+    React12.createElement(
+      "div",
+      { className: "oe-properties-group-title" },
+      "Insert variable"
+    ),
+    React12.createElement(
+      "div",
+      { className: "oe-variable-combobox", ref: comboboxRef },
+      variableSelectOpen ? React12.createElement(
+        "div",
+        { className: "oe-variable-combobox-dropdown" },
+        React12.createElement("input", {
+          ref: searchInputRef,
+          type: "text",
+          className: "oe-field-input",
+          placeholder: "Search or create variable\u2026",
+          value: variableSearch,
+          onChange: (e) => setVariableSearch(e.target.value),
+          onKeyDown: (e) => {
+            if (e.key === "Escape") {
+              setVariableSelectOpen(false);
+              setVariableSearch("");
+              setShowCreateForm(false);
+            }
+          }
+        }),
+        filteredVariables.length > 0 && React12.createElement(
+          "div",
+          { className: "oe-variable-combobox-list" },
+          filteredVariables.map(
+            ([name, def]) => React12.createElement(
+              "button",
+              {
+                key: name,
+                type: "button",
+                className: "oe-variable-combobox-item",
+                onClick: () => handleInsertVariable(name)
+              },
+              React12.createElement(
+                "code",
+                { className: "oe-variable-combobox-key" },
+                `{{${name}}}`
+              ),
+              React12.createElement(
+                "span",
+                { className: "oe-variable-combobox-fallback" },
+                def.fallback || "\u2014"
+              )
+            )
+          )
+        ),
+        variableSearch.trim() && !variables[variableSearch.trim()] && isValidVariableKey(variableSearch.trim()) || showCreateForm ? React12.createElement(
+          "div",
+          { className: "oe-variable-combobox-create" },
+          React12.createElement(
+            "div",
+            { className: "oe-variable-combobox-create-header" },
+            "Create new variable"
+          ),
+          React12.createElement("input", {
+            type: "text",
+            className: "oe-field-input",
+            placeholder: "variableName",
+            value: showCreateForm ? newVarName : variableSearch.trim(),
+            onChange: (e) => setNewVarName(e.target.value),
+            "data-invalid": newVarName.trim() && !isValidVariableKey(newVarName.trim()) ? "true" : void 0
+          }),
+          React12.createElement("input", {
+            type: "text",
+            className: "oe-field-input",
+            placeholder: "Fallback text",
+            value: newVarFallback,
+            onChange: (e) => setNewVarFallback(e.target.value)
+          }),
+          React12.createElement(
+            "button",
+            {
+              type: "button",
+              className: "oe-btn oe-btn-primary",
+              onClick: () => {
+                const name = newVarName.trim() || variableSearch.trim();
+                const fallback = newVarFallback.trim();
+                if (!isValidVariableKey(name)) return;
+                onCreateAndInsert(name, fallback);
+                setNewVarName("");
+                setNewVarFallback("");
+                setVariableSelectOpen(false);
+                setVariableSearch("");
+                setShowCreateForm(false);
+              },
+              disabled: !isValidVariableKey(
+                showCreateForm ? newVarName.trim() : variableSearch.trim()
+              )
+            },
+            "Create & Insert"
+          )
+        ) : filteredVariables.length === 0 && variableSearch.trim() && React12.createElement(
+          "div",
+          { className: "oe-variable-combobox-empty" },
+          "No variables found. Type a valid name to create one."
+        )
+      ) : React12.createElement(
+        "button",
+        {
+          type: "button",
+          className: "oe-btn",
+          onClick: () => setVariableSelectOpen(true)
+        },
+        variableCount > 0 ? `Insert variable (${variableCount})` : "Create variable\u2026"
+      )
+    )
+  );
+}
+
+// src/components/properties-panel/properties-group.tsx
+import React14 from "react";
+
+// src/components/properties-panel/property-field.tsx
+import React13, { useCallback as useCallback8 } from "react";
+function PropertyField({ schema, value, onChange }) {
+  const handleChange = useCallback8(
+    (e) => {
+      let newValue = e.target.value;
+      if (schema.type === "number") {
+        newValue = e.target.value === "" ? void 0 : Number(e.target.value);
+      } else if (schema.type === "toggle") {
+        newValue = e.target.checked;
+      }
+      onChange(schema.key, newValue);
+    },
+    [schema.key, schema.type, onChange]
+  );
+  const stringValue = value !== void 0 && value !== null ? String(value) : "";
+  switch (schema.type) {
+    case "textarea":
+      return React13.createElement(
+        "div",
+        { className: "oe-field" },
+        React13.createElement(
+          "label",
+          { className: "oe-field-label" },
+          schema.label
+        ),
+        React13.createElement("textarea", {
+          className: "oe-field-textarea",
+          value: stringValue,
+          onChange: handleChange,
+          placeholder: schema.placeholder ?? ""
+        })
+      );
+    case "select":
+      return React13.createElement(
+        "div",
+        { className: "oe-field" },
+        React13.createElement(
+          "label",
+          { className: "oe-field-label" },
+          schema.label
+        ),
+        React13.createElement(
+          "select",
+          {
+            className: "oe-field-select",
+            value: stringValue,
+            onChange: handleChange
+          },
+          React13.createElement("option", { value: "" }, "\u2014"),
+          ...(schema.options ?? []).map(
+            (opt) => React13.createElement(
+              "option",
+              { key: opt.value, value: opt.value },
+              opt.label
+            )
+          )
+        )
+      );
+    case "color":
+      return React13.createElement(
+        "div",
+        { className: "oe-field" },
+        React13.createElement(
+          "label",
+          { className: "oe-field-label" },
+          schema.label
+        ),
+        React13.createElement(
+          "div",
+          { className: "oe-field-color-wrapper" },
+          React13.createElement("input", {
+            type: "color",
+            className: "oe-field-color-swatch",
+            value: stringValue || "#000000",
+            onChange: handleChange
+          }),
+          React13.createElement("input", {
+            type: "text",
+            className: "oe-field-input",
+            value: stringValue,
+            onChange: handleChange,
+            placeholder: "#000000",
+            style: { flex: 1 }
+          })
+        )
+      );
+    case "toggle":
+      return React13.createElement(
+        "div",
+        { className: "oe-field" },
+        React13.createElement(
+          "label",
+          {
+            className: "oe-field-label",
+            style: {
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              cursor: "pointer"
+            }
+          },
+          React13.createElement("input", {
+            type: "checkbox",
+            checked: !!value,
+            onChange: handleChange
+          }),
+          schema.label
+        )
+      );
+    case "number":
+      return React13.createElement(
+        "div",
+        { className: "oe-field" },
+        React13.createElement(
+          "label",
+          { className: "oe-field-label" },
+          schema.label
+        ),
+        React13.createElement("input", {
+          type: "number",
+          className: "oe-field-input",
+          value: stringValue,
+          onChange: handleChange,
+          placeholder: schema.placeholder ?? ""
+        })
+      );
+    case "url":
+    case "text":
+    case "spacing":
+    default:
+      return React13.createElement(
+        "div",
+        { className: "oe-field" },
+        React13.createElement(
+          "label",
+          { className: "oe-field-label" },
+          schema.label
+        ),
+        React13.createElement("input", {
+          type: schema.type === "url" ? "url" : "text",
+          className: "oe-field-input",
+          value: stringValue,
+          onChange: handleChange,
+          placeholder: schema.placeholder ?? ""
+        })
+      );
+  }
+}
+
+// src/components/properties-panel/properties-group.tsx
+function PropertiesGroup({
+  group,
+  properties,
+  nodeProps,
+  onChange
+}) {
+  return React14.createElement(
+    "div",
+    { className: "oe-properties-group" },
+    React14.createElement(
+      "div",
+      { className: "oe-properties-group-title" },
+      GROUP_LABELS[group] ?? group
+    ),
+    ...properties.map(
+      (prop) => React14.createElement(PropertyField, {
+        key: prop.key,
+        schema: prop,
+        value: resolveValue(nodeProps, prop.key),
+        onChange
+      })
+    )
+  );
+}
+
+// src/components/properties-panel/properties-panel.tsx
 function PropertiesPanel({ className, registry }) {
-  const { selectedNodeId, updateNode: updateNode2, deleteNode } = useEditor();
+  const { selectedNodeId, document: emailDocument, updateNode: updateNode2, deleteNode, updateVariables } = useEditor();
   const selectedNode = useSelectedNode();
   const reg = registry ?? defaultRegistry;
-  const definition = useMemo5(
+  const definition = useMemo7(
     () => selectedNode ? reg.get(selectedNode.type) : void 0,
     [selectedNode, reg]
   );
-  const handlePropertyChange = useCallback7(
+  const handlePropertyChange = useCallback9(
     (key, value) => {
       if (!selectedNodeId) return;
       if (key.includes(".")) {
@@ -2210,76 +2548,70 @@ function PropertiesPanel({ className, registry }) {
     },
     [selectedNodeId, selectedNode, updateNode2]
   );
-  const handleDelete = useCallback7(() => {
+  const handleDelete = useCallback9(() => {
     if (selectedNodeId) {
       deleteNode(selectedNodeId);
     }
   }, [selectedNodeId, deleteNode]);
+  const contentKey = selectedNode && CONTENT_KEY[selectedNode.type];
+  const currentContent = contentKey && selectedNode?.props?.[contentKey];
+  const handleInsertVariable = useCallback9(
+    (variableName) => {
+      if (!selectedNodeId || !contentKey) return;
+      const newValue = insertVariableIntoContent(currentContent, variableName);
+      updateNode2(selectedNodeId, { [contentKey]: newValue });
+    },
+    [selectedNodeId, contentKey, currentContent, updateNode2]
+  );
+  const handleCreateAndInsert = useCallback9(
+    (name, fallback) => {
+      const variables = emailDocument.variables ?? {};
+      updateVariables({ ...variables, [name]: { fallback } });
+      if (selectedNodeId && contentKey) {
+        const newValue = insertVariableIntoContent(currentContent, name);
+        updateNode2(selectedNodeId, { [contentKey]: newValue });
+      }
+    },
+    [emailDocument.variables, updateVariables, selectedNodeId, contentKey, currentContent, updateNode2]
+  );
+  const groups = useMemo7(() => {
+    if (!definition?.properties) return {};
+    const grouped = {};
+    for (const prop of definition.properties) {
+      const group = prop.group ?? "content";
+      if (!grouped[group]) grouped[group] = [];
+      grouped[group].push(prop);
+    }
+    return grouped;
+  }, [definition?.properties]);
   if (!selectedNode || !definition) {
-    return React10.createElement(
-      "div",
-      { className: `oe-properties ${className ?? ""}` },
-      React10.createElement(
-        "div",
-        { className: "oe-properties-empty" },
-        React10.createElement(Icons.settings, { size: 32 }),
-        React10.createElement("p", null, "Select an element to edit its properties")
-      )
-    );
+    return React15.createElement(PropertiesPanelEmpty, { className });
   }
-  const groups = {};
-  for (const prop of definition.properties) {
-    const group = prop.group ?? "content";
-    if (!groups[group]) groups[group] = [];
-    groups[group].push(prop);
-  }
-  const groupLabels = {
-    content: "Content",
-    layout: "Layout",
-    style: "Style"
-  };
-  const groupOrder = ["content", "layout", "style"];
-  return React10.createElement(
+  const canInsertVariable = selectedNode && CONTENT_NODE_TYPES.includes(
+    selectedNode.type
+  );
+  return React15.createElement(
     "div",
     { className: `oe-properties ${className ?? ""}` },
-    // Header
-    React10.createElement(
-      "div",
-      { className: "oe-properties-header" },
-      React10.createElement(
-        "span",
-        { className: "oe-properties-title" },
-        definition.label
-      ),
-      React10.createElement(
-        "button",
-        {
-          className: "oe-btn-icon",
-          onClick: handleDelete,
-          title: "Delete element",
-          style: { color: "var(--oe-danger)" }
-        },
-        React10.createElement(Icons.trash, { size: 16 })
-      )
-    ),
-    ...groupOrder.filter((g) => groups[g] && groups[g].length > 0).map(
-      (group) => React10.createElement(
-        "div",
-        { key: group, className: "oe-properties-group" },
-        React10.createElement(
-          "div",
-          { className: "oe-properties-group-title" },
-          groupLabels[group] ?? group
-        ),
-        ...groups[group].map(
-          (prop) => React10.createElement(PropertyField, {
-            key: prop.key,
-            schema: prop,
-            value: resolveValue(selectedNode.props, prop.key),
-            onChange: handlePropertyChange
-          })
-        )
-      )
+    React15.createElement(PropertiesPanelHeader, {
+      title: definition.label,
+      onDelete: handleDelete
+    }),
+    canInsertVariable && React15.createElement(VariableInserter, {
+      selectedNodeId: selectedNodeId || void 0,
+      contentKey: contentKey || void 0,
+      currentContent: currentContent || void 0,
+      onInsert: handleInsertVariable,
+      onCreateAndInsert: handleCreateAndInsert
+    }),
+    ...GROUP_ORDER.filter((g) => groups[g] && groups[g].length > 0).map(
+      (group) => React15.createElement(PropertiesGroup, {
+        key: group,
+        group,
+        properties: groups[group],
+        nodeProps: selectedNode.props ?? {},
+        onChange: handlePropertyChange
+      })
     )
   );
 }
@@ -2297,6 +2629,7 @@ function EmailEditor({
   canvas,
   toolbarActions,
   components,
+  variableData,
   onExportHTML,
   onExportJSON
 }) {
@@ -2310,40 +2643,204 @@ function EmailEditor({
     availableModes,
     registry
   } = config;
-  return React11.createElement(
+  return React16.createElement(
     EditorProvider,
     { initialDocument, onChange },
-    React11.createElement(
+    React16.createElement(
       DragDropProvider,
       null,
-      React11.createElement(
+      React16.createElement(
         "div",
         {
           className: `open-email-editor ${className ?? ""}`,
           "data-theme": theme,
           style
         },
-        // Toolbar
-        showToolbar && toolbar !== false && (toolbar ?? React11.createElement(EditorToolbar, {
+        showToolbar && toolbar !== false && (toolbar ?? React16.createElement(EditorToolbar, {
           modes: availableModes,
           actions: toolbarActions,
+          variableData,
           showExportJSON,
           showExportHTML,
           components,
           onExportHTML,
           onExportJSON
         })),
-        // Body (sidebar + canvas + properties)
-        React11.createElement(
+        React16.createElement(
           "div",
           { className: "oe-editor-body" },
-          // Sidebar (Draggables)
-          showSidebar && sidebar !== false && (sidebar ?? React11.createElement(EditorSidebar, { registry })),
-          // Canvas (Droppables/Sortables)
-          canvas ?? React11.createElement(EditorCanvas, null),
-          // Properties Panel
-          showProperties && propertiesPanel !== false && (propertiesPanel ?? React11.createElement(PropertiesPanel, { registry }))
+          showSidebar && sidebar !== false && (sidebar ?? React16.createElement(EditorSidebar, { registry })),
+          canvas ?? React16.createElement(EditorCanvas, { variableData }),
+          showProperties && propertiesPanel !== false && (propertiesPanel ?? React16.createElement(PropertiesPanel, { registry }))
         )
+      )
+    )
+  );
+}
+
+// src/components/variable-manager.tsx
+import React17, { useCallback as useCallback10, useState as useState7 } from "react";
+var VARIABLE_KEY_REGEX2 = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+function isValidVariableKey2(key) {
+  return key.length > 0 && VARIABLE_KEY_REGEX2.test(key);
+}
+function VariableManager({ className }) {
+  const { document, updateVariables } = useEditor();
+  const variables = document.variables ?? {};
+  const [editingKey, setEditingKey] = useState7(null);
+  const [newKey, setNewKey] = useState7("");
+  const [newFallback, setNewFallback] = useState7("");
+  const [addMode, setAddMode] = useState7(false);
+  const entries = Object.entries(variables);
+  const handleSaveEdit = useCallback10(
+    (key, fallback) => {
+      const next = { ...variables, [key]: { fallback } };
+      updateVariables(next);
+      setEditingKey(null);
+    },
+    [variables, updateVariables]
+  );
+  const handleDelete = useCallback10(
+    (key) => {
+      const next = { ...variables };
+      delete next[key];
+      updateVariables(next);
+      setEditingKey(null);
+    },
+    [variables, updateVariables]
+  );
+  const handleAdd = useCallback10(() => {
+    const k = newKey.trim();
+    const f = newFallback.trim();
+    if (!isValidVariableKey2(k)) return;
+    const next = { ...variables, [k]: { fallback: f } };
+    updateVariables(next);
+    setNewKey("");
+    setNewFallback("");
+    setAddMode(false);
+  }, [variables, updateVariables, newKey, newFallback]);
+  const startAdd = useCallback10(() => {
+    setAddMode(true);
+    setNewKey("");
+    setNewFallback("");
+  }, []);
+  const cancelAdd = useCallback10(() => {
+    setAddMode(false);
+    setNewKey("");
+    setNewFallback("");
+  }, []);
+  return React17.createElement(
+    "div",
+    { className: `oe-variable-manager ${className ?? ""}` },
+    React17.createElement(
+      "div",
+      { className: "oe-variable-manager-header" },
+      React17.createElement("span", { className: "oe-properties-group-title" }, "Variables"),
+      React17.createElement(
+        "button",
+        {
+          type: "button",
+          className: "oe-btn-icon",
+          onClick: addMode ? cancelAdd : startAdd,
+          title: addMode ? "Cancel" : "Add variable"
+        },
+        React17.createElement(addMode ? Icons.close : Icons.plus, { size: 14 })
+      )
+    ),
+    addMode && React17.createElement(
+      "div",
+      { className: "oe-variable-manager-add" },
+      React17.createElement("input", {
+        type: "text",
+        className: "oe-field-input",
+        placeholder: "variableName",
+        value: newKey,
+        onChange: (e) => setNewKey(e.target.value),
+        "data-invalid": newKey.trim() && !isValidVariableKey2(newKey.trim()) ? "true" : void 0
+      }),
+      React17.createElement("input", {
+        type: "text",
+        className: "oe-field-input",
+        placeholder: "Fallback text",
+        value: newFallback,
+        onChange: (e) => setNewFallback(e.target.value)
+      }),
+      React17.createElement(
+        "button",
+        {
+          type: "button",
+          className: "oe-btn oe-btn-primary",
+          onClick: handleAdd,
+          disabled: !isValidVariableKey2(newKey.trim())
+        },
+        "Add"
+      )
+    ),
+    entries.length === 0 && !addMode ? React17.createElement(
+      "div",
+      { className: "oe-variable-manager-empty" },
+      "No variables. Use {{name}} in text and add variables here."
+    ) : entries.map(
+      ([key, def]) => editingKey === key ? React17.createElement(VariableRowEdit, {
+        key,
+        name: key,
+        fallback: def.fallback,
+        onSave: (fallback) => handleSaveEdit(key, fallback),
+        onDelete: () => handleDelete(key),
+        onCancel: () => setEditingKey(null)
+      }) : React17.createElement(
+        "div",
+        {
+          key,
+          className: "oe-variable-manager-row",
+          onClick: () => setEditingKey(key)
+        },
+        React17.createElement("code", { className: "oe-variable-manager-key" }, `{{${key}}}`),
+        React17.createElement("span", { className: "oe-variable-manager-fallback" }, def.fallback || "\u2014")
+      )
+    )
+  );
+}
+function VariableRowEdit({ name, fallback, onSave, onDelete, onCancel }) {
+  const [value, setValue] = useState7(fallback);
+  return React17.createElement(
+    "div",
+    { className: "oe-variable-manager-row oe-variable-manager-row-edit" },
+    React17.createElement("code", { className: "oe-variable-manager-key" }, `{{${name}}}`),
+    React17.createElement("input", {
+      type: "text",
+      className: "oe-field-input",
+      value,
+      onChange: (e) => setValue(e.target.value),
+      placeholder: "Fallback",
+      onClick: (e) => e.stopPropagation()
+    }),
+    React17.createElement(
+      "div",
+      { className: "oe-variable-manager-actions" },
+      React17.createElement(
+        "button",
+        { type: "button", className: "oe-btn-icon", onClick: () => onSave(value), title: "Save" },
+        React17.createElement(Icons.check, { size: 14 })
+      ),
+      React17.createElement(
+        "button",
+        { type: "button", className: "oe-btn-icon", onClick: onCancel, title: "Cancel" },
+        React17.createElement(Icons.close, { size: 14 })
+      ),
+      React17.createElement(
+        "button",
+        {
+          type: "button",
+          className: "oe-btn-icon",
+          onClick: (e) => {
+            e.stopPropagation();
+            onDelete();
+          },
+          title: "Delete",
+          style: { color: "var(--oe-danger)" }
+        },
+        React17.createElement(Icons.trash, { size: 14 })
       )
     )
   );
@@ -2359,6 +2856,7 @@ export {
   Icons,
   LayerTree,
   PropertiesPanel,
+  VariableManager,
   addNode,
   cloneNode,
   createEmptyDocument,
@@ -2366,6 +2864,7 @@ export {
   createRegistry,
   defaultRegistry,
   exportToJSON,
+  extractVariableNames,
   findNode,
   findParent,
   flattenTree,
@@ -2374,7 +2873,9 @@ export {
   getComponentsByCategory,
   getIcon,
   getNodePath,
+  hasVariables,
   importFromJSON,
+  interpolateVariables,
   mergeRegistries,
   moveNode,
   removeNode,
@@ -2391,6 +2892,7 @@ export {
   useNodeDroppable,
   useSelectedNode,
   useSidebarDraggable,
+  useVariables,
   validateDocument
 };
 //# sourceMappingURL=index.mjs.map

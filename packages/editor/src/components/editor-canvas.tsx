@@ -1,6 +1,3 @@
-// ─── Editor Canvas ───────────────────────────────────────────────────────────
-// Central editing area with visual, code, and preview modes.
-
 import React, { useCallback, useState, useEffect, useRef, useMemo } from "react";
 import { useEditor } from "../engine/editor-store";
 import { defaultRegistry } from "../registry/component-registry";
@@ -8,8 +5,6 @@ import { exportToJSON, importFromJSON } from "../renderer/json-renderer";
 import { renderToHTML } from "../renderer/html-renderer";
 import type { EmailNode } from "../types";
 import { useNodeDraggable, useDropZone, useContainerDropZone, useNodeDroppable, useDragDrop } from "./dnd";
-
-// ─── Drop Indicator ──────────────────────────────────────────────────────────
 
 interface DropIndicatorProps {
     parentId: string;
@@ -25,8 +20,6 @@ function DropIndicator({ parentId, index }: DropIndicatorProps) {
     });
 }
 
-// ─── Container Empty Drop Zone ───────────────────────────────────────────────
-
 interface EmptyContainerDropZoneProps {
     containerId: string;
     label?: string;
@@ -40,8 +33,6 @@ function EmptyContainerDropZone({ containerId, label }: EmptyContainerDropZonePr
         className: `oe-drop-zone ${isOver ? "oe-drop-zone-active" : ""}`,
     }, label ?? "+ Drop component here");
 }
-
-// ─── Visual Canvas Node ──────────────────────────────────────────────────────
 
 interface CanvasNodeProps {
     node: EmailNode;
@@ -58,7 +49,6 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
     const hasChildren = node.children && node.children.length > 0;
     const acceptsChildren = def?.acceptsChildren ?? false;
 
-
     const {
         attributes,
         listeners,
@@ -66,12 +56,10 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
         isDragging,
     } = useNodeDraggable(node.id, parentId, index, label, "canvas");
 
-
     const {
         setNodeRef: setDropRef,
         isOver,
     } = useNodeDroppable(node.id, parentId, index, acceptsChildren);
-
 
     const mergedRef = useCallback(
         (el: HTMLElement | null) => {
@@ -92,39 +80,33 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
             });
         }
 
-        const elements: React.ReactNode[] = [];
-
-
-        elements.push(
+        const children = node.children!;
+        const elements: React.ReactNode[] = [
             React.createElement(DropIndicator, {
                 key: `drop-${node.id}-0`,
                 parentId: node.id,
                 index: 0,
-            })
-        );
+            }),
+        ];
 
-        node.children!.forEach((child, i) => {
+        for (let i = 0; i < children.length; i++) {
             elements.push(
                 React.createElement(CanvasNode, {
-                    key: child.id,
-                    node: child,
+                    key: children[i].id,
+                    node: children[i],
                     parentId: node.id,
                     index: i,
-                })
-            );
-
-            elements.push(
+                }),
                 React.createElement(DropIndicator, {
                     key: `drop-${node.id}-${i + 1}`,
                     parentId: node.id,
                     index: i + 1,
                 })
             );
-        });
+        }
 
         return elements;
     };
-
 
     const renderContent = (): React.ReactNode => {
         const style = (node.props.style ?? {}) as React.CSSProperties;
@@ -333,8 +315,6 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
     );
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 function getEmptyLabel(type: string): string {
     switch (type) {
         case "container":
@@ -349,8 +329,6 @@ function getEmptyLabel(type: string): string {
             return "+ Drop here";
     }
 }
-
-// ─── Visual Mode ─────────────────────────────────────────────────────────────
 
 function VisualCanvas() {
     const { document, selectNode } = useEditor();
@@ -381,7 +359,6 @@ function CodeCanvas() {
     const [code, setCode] = useState(() => exportToJSON(document));
     const [error, setError] = useState<string | null>(null);
 
-    // Sync code when document changes externally
     useEffect(() => {
         setCode(exportToJSON(document));
     }, [document]);
@@ -425,22 +402,24 @@ function CodeCanvas() {
     );
 }
 
-// ─── Preview Mode ────────────────────────────────────────────────────────────
+interface PreviewCanvasProps {
+    variableData?: Record<string, string>;
+}
 
-function PreviewCanvas() {
+function PreviewCanvas({ variableData }: PreviewCanvasProps) {
     const { document } = useEditor();
     const [html, setHtml] = useState<string>("");
     const iframeRef = useRef<HTMLIFrameElement>(null);
 
     useEffect(() => {
         let cancelled = false;
-        renderToHTML(document).then((result) => {
+        renderToHTML(document, variableData).then((result) => {
             if (!cancelled) setHtml(result);
         });
         return () => {
             cancelled = true;
         };
-    }, [document]);
+    }, [document, variableData]);
 
     useEffect(() => {
         if (iframeRef.current && html) {
@@ -465,13 +444,13 @@ function PreviewCanvas() {
     );
 }
 
-// ─── Main Canvas Component ───────────────────────────────────────────────────
-
 export interface EditorCanvasProps {
     className?: string;
+    /** Variable values for {{variableName}} interpolation in preview */
+    variableData?: Record<string, string>;
 }
 
-export function EditorCanvas({ className }: EditorCanvasProps) {
+export function EditorCanvas({ className, variableData }: EditorCanvasProps) {
     const { mode } = useEditor();
 
     const content = useMemo(() => {
@@ -481,11 +460,11 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
             case "code":
                 return React.createElement(CodeCanvas, null);
             case "preview":
-                return React.createElement(PreviewCanvas, null);
+                return React.createElement(PreviewCanvas, { variableData });
             default:
                 return React.createElement(VisualCanvas, null);
         }
-    }, [mode]);
+    }, [mode, variableData]);
 
     return content;
 }

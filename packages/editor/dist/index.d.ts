@@ -80,6 +80,10 @@ interface EmailNode {
     /** Child nodes (for layout components) */
     children?: EmailNode[];
 }
+/** Variable definition with fallback used when no data is provided at render time */
+interface VariableDefinition {
+    fallback: string;
+}
 /** Root document representing a complete email template */
 interface EmailDocument {
     /** Document version for schema migrations */
@@ -94,6 +98,8 @@ interface EmailDocument {
     };
     /** Root body node containing the email tree */
     body: EmailNode;
+    /** Document-level variables: unique key → definition with fallback. Referenced in content as {{variableName}} */
+    variables?: Record<string, VariableDefinition>;
 }
 /** Editor display mode */
 type EditorMode = "visual" | "code" | "preview";
@@ -138,6 +144,9 @@ type EditorAction = {
         newParentId: NodeId;
         index?: number;
     };
+} | {
+    type: "UPDATE_VARIABLES";
+    payload: Record<string, VariableDefinition>;
 } | {
     type: "SET_MODE";
     payload: EditorMode;
@@ -240,12 +249,14 @@ interface EmailEditorProps {
             loading?: boolean;
         }>;
     };
+    /** Variable values for {{variableName}} interpolation when exporting HTML or in preview */
+    variableData?: Record<string, string>;
     /** Called when HTML is exported */
     onExportHTML?: (html: string) => void;
     /** Called when JSON is exported */
     onExportJSON?: (json: string) => void;
 }
-declare function EmailEditor({ initialDocument, onChange, config, className, style, toolbar, sidebar, propertiesPanel, canvas, toolbarActions, components, onExportHTML, onExportJSON, }: EmailEditorProps): React__default.FunctionComponentElement<EditorProviderProps>;
+declare function EmailEditor({ initialDocument, onChange, config, className, style, toolbar, sidebar, propertiesPanel, canvas, toolbarActions, components, variableData, onExportHTML, onExportJSON, }: EmailEditorProps): React__default.FunctionComponentElement<EditorProviderProps>;
 
 interface EditorToolbarProps {
     className?: string;
@@ -253,6 +264,8 @@ interface EditorToolbarProps {
     modes?: EditorMode[];
     /** Custom actions rendered on the right side (before export buttons) */
     actions?: React__default.ReactNode;
+    /** Variable values for {{variableName}} interpolation when exporting HTML */
+    variableData?: Record<string, string>;
     /** Called when HTML is exported */
     onExportHTML?: (html: string) => void;
     /** Called when JSON is exported */
@@ -272,7 +285,7 @@ interface EditorToolbarProps {
         }>;
     };
 }
-declare function EditorToolbar({ className, modes, actions, onExportHTML, onExportJSON, showExportJSON, showExportHTML, components, }: EditorToolbarProps): React__default.DetailedReactHTMLElement<{
+declare function EditorToolbar({ className, modes, actions, variableData, onExportHTML, onExportJSON, showExportJSON, showExportHTML, components, }: EditorToolbarProps): React__default.DetailedReactHTMLElement<{
     className: string;
 }, HTMLElement>;
 
@@ -287,16 +300,32 @@ declare function EditorSidebar({ className, registry, defaultTab, }: EditorSideb
     className: string;
 }, HTMLElement>;
 
+interface PreviewCanvasProps {
+    variableData?: Record<string, string>;
+}
 interface EditorCanvasProps {
     className?: string;
+    /** Variable values for {{variableName}} interpolation in preview */
+    variableData?: Record<string, string>;
 }
-declare function EditorCanvas({ className }: EditorCanvasProps): React__default.FunctionComponentElement<{}>;
+declare function EditorCanvas({ className, variableData }: EditorCanvasProps): React__default.FunctionComponentElement<{}> | React__default.FunctionComponentElement<PreviewCanvasProps>;
+
+interface PropertiesPanelEmptyProps {
+    className?: string;
+}
 
 interface PropertiesPanelProps {
     className?: string;
     registry?: ComponentRegistry;
 }
-declare function PropertiesPanel({ className, registry }: PropertiesPanelProps): React__default.DetailedReactHTMLElement<{
+declare function PropertiesPanel({ className, registry }: PropertiesPanelProps): React__default.FunctionComponentElement<PropertiesPanelEmptyProps> | React__default.DetailedReactHTMLElement<{
+    className: string;
+}, HTMLElement>;
+
+interface VariableManagerProps {
+    className?: string;
+}
+declare function VariableManager({ className }: VariableManagerProps): React__default.DetailedReactHTMLElement<{
     className: string;
 }, HTMLElement>;
 
@@ -352,6 +381,8 @@ declare const Icons: {
     chevronDown: ({ size, className }: IconProps) => React__default.ReactSVGElement;
     settings: ({ size, className }: IconProps) => React__default.ReactSVGElement;
     copy: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    check: ({ size, className }: IconProps) => React__default.ReactSVGElement;
+    close: ({ size, className }: IconProps) => React__default.ReactSVGElement;
 };
 /** Get an icon component by name */
 declare function getIcon(name: string): React__default.ComponentType<IconProps>;
@@ -368,78 +399,55 @@ interface EditorProviderProps {
     children?: ReactNode;
 }
 declare function EditorProvider({ initialDocument, onChange, children, }: EditorProviderProps): React__default.FunctionComponentElement<React__default.ProviderProps<EditorContextValue | null>>;
-/** Access the full editor state and dispatch */
 declare function useEditor(): {
-    /** Raw dispatch for custom actions */
     dispatch: React__default.Dispatch<EditorAction>;
-    /** Set the entire document */
     setDocument: (doc: EmailDocument) => void;
-    /** Select a node by ID */
     selectNode: (id: NodeId | null) => void;
-    /** Update a node's props */
     updateNode: (id: NodeId, props: Record<string, unknown>) => void;
-    /** Add a new node as a child of parentId */
     addNode: (parentId: NodeId, node: EmailNode, index?: number) => void;
-    /** Delete a node by ID */
     deleteNode: (id: NodeId) => void;
-    /** Move a node to a new parent */
     moveNode: (nodeId: NodeId, newParentId: NodeId, index?: number) => void;
-    /** Switch editor mode */
+    updateVariables: (variables: Record<string, {
+        fallback: string;
+    }>) => void;
     setMode: (mode: EditorMode) => void;
-    /** Mark the document as clean (saved) */
     markClean: () => void;
     document: EmailDocument;
     selectedNodeId: NodeId | null;
     mode: EditorMode;
     isDirty: boolean;
 };
-/** Get the currently selected node */
 declare function useSelectedNode(): EmailNode | null;
-/** Get a specific node by ID */
 declare function useNode(nodeId: NodeId): EmailNode | null;
+declare function useVariables(): Record<string, {
+    fallback: string;
+}>;
 
-/** Generate a unique node ID */
 declare function generateId(): string;
-/** Create a new node. Pass an `id` for deterministic output (e.g. SSR), otherwise one is auto-generated. */
 declare function createNode(type: EmailNode["type"], props?: Record<string, unknown>, children?: EmailNode[], id?: string): EmailNode;
-/** Deep clone a node and all its children, generating new IDs */
 declare function cloneNode(node: EmailNode): EmailNode;
-/** Find a node by ID in the tree (returns null if not found) */
 declare function findNode(root: EmailNode, nodeId: NodeId): EmailNode | null;
-/** Find the parent of a node by ID */
 declare function findParent(root: EmailNode, nodeId: NodeId): EmailNode | null;
-/** Get the path (array of IDs) from root to the given node */
 declare function getNodePath(root: EmailNode, nodeId: NodeId): NodeId[];
-/** Update a node's props immutably */
 declare function updateNode(root: EmailNode, nodeId: NodeId, newProps: Record<string, unknown>): EmailNode;
-/** Add a child node to a parent immutably */
 declare function addNode(root: EmailNode, parentId: NodeId, node: EmailNode, index?: number): EmailNode;
-/** Remove a node by ID immutably */
 declare function removeNode(root: EmailNode, nodeId: NodeId): EmailNode;
-/** Move a node to a new parent immutably */
 declare function moveNode(root: EmailNode, nodeId: NodeId, newParentId: NodeId, index?: number): EmailNode;
-/** Get a flat list of all nodes in the tree */
 declare function flattenTree(root: EmailNode): EmailNode[];
-/** Validate a document structure */
 declare function validateDocument(doc: EmailDocument): string[];
-/** Create a default empty document */
 declare function createEmptyDocument(title?: string): EmailDocument;
 
-/**
- * Convert an EmailDocument into a React Email element tree.
- * Returns a full <Html><Head/><Preview/><Body>...</Body></Html> element.
- */
-declare function renderToReactEmail(document: EmailDocument): React__default.ReactElement;
+declare function renderToReactEmail(document: EmailDocument, variableData?: Record<string, string>): React__default.ReactElement;
 
-/**
- * Render an EmailDocument to an HTML string.
- * This produces email-client-compatible HTML with table-based layout.
- */
-declare function renderToHTML(document: EmailDocument): Promise<string>;
-/**
- * Render an EmailDocument to plain text (for text-only email fallback).
- */
-declare function renderToPlainText(document: EmailDocument): Promise<string>;
+declare function renderToHTML(document: EmailDocument, variableData?: Record<string, string>): Promise<string>;
+declare function renderToPlainText(document: EmailDocument, variableData?: Record<string, string>): Promise<string>;
+
+type VariableDefinitions = Record<string, {
+    fallback: string;
+}>;
+declare function interpolateVariables(content: string, variableData: Record<string, string | undefined> | undefined, variableDefinitions: VariableDefinitions | undefined): string;
+declare function hasVariables(content: string): boolean;
+declare function extractVariableNames(content: string): string[];
 
 /**
  * Export an EmailDocument to a JSON string.
@@ -561,4 +569,4 @@ declare function useNodeDroppable(nodeId: string, parentId: string, index: numbe
     setNodeRef: (element: HTMLElement | null) => void;
 };
 
-export { type BaseNodeProps, type ButtonProps, type ColumnProps, ComponentCard, type ComponentCardProps, type ComponentDefinition, type ComponentRegistry, type ContainerProps, type DragData, DragDropProvider, type DropZoneData, type EditorAction, EditorCanvas, type EditorCanvasProps, type EditorConfig, type EditorMode, EditorProvider, type EditorProviderProps, EditorSidebar, type EditorSidebarProps, type EditorState, EditorToolbar, type EditorToolbarProps, type EmailDocument, EmailEditor, type EmailEditorProps, type EmailNode, type EmailNodeProps, type EmailNodeType, type HeadingProps, type HrProps, Icons, type ImageProps, LayerTree, type LayerTreeProps, type LinkProps, type NodeDragData, type NodeId, PropertiesPanel, type PropertiesPanelProps, type PropertySchema, type RowProps, type SectionProps, type SidebarDragData, type SpacerProps, type TextProps, addNode, cloneNode, createEmptyDocument, createNode, createRegistry, defaultRegistry, exportToJSON, findNode, findParent, flattenTree, generateId, getComponentDef, getComponentsByCategory, getIcon, getNodePath, importFromJSON, mergeRegistries, moveNode, removeNode, renderToHTML, renderToPlainText, renderToReactEmail, updateNode, useContainerDropZone, useDragDrop, useDropZone, useEditor, useNode, useNodeDraggable, useNodeDroppable, useSelectedNode, useSidebarDraggable, validateDocument };
+export { type BaseNodeProps, type ButtonProps, type ColumnProps, ComponentCard, type ComponentCardProps, type ComponentDefinition, type ComponentRegistry, type ContainerProps, type DragData, DragDropProvider, type DropZoneData, type EditorAction, EditorCanvas, type EditorCanvasProps, type EditorConfig, type EditorMode, EditorProvider, type EditorProviderProps, EditorSidebar, type EditorSidebarProps, type EditorState, EditorToolbar, type EditorToolbarProps, type EmailDocument, EmailEditor, type EmailEditorProps, type EmailNode, type EmailNodeProps, type EmailNodeType, type HeadingProps, type HrProps, Icons, type ImageProps, LayerTree, type LayerTreeProps, type LinkProps, type NodeDragData, type NodeId, PropertiesPanel, type PropertiesPanelProps, type PropertySchema, type RowProps, type SectionProps, type SidebarDragData, type SpacerProps, type TextProps, type VariableDefinition, type VariableDefinitions, VariableManager, type VariableManagerProps, addNode, cloneNode, createEmptyDocument, createNode, createRegistry, defaultRegistry, exportToJSON, extractVariableNames, findNode, findParent, flattenTree, generateId, getComponentDef, getComponentsByCategory, getIcon, getNodePath, hasVariables, importFromJSON, interpolateVariables, mergeRegistries, moveNode, removeNode, renderToHTML, renderToPlainText, renderToReactEmail, updateNode, useContainerDropZone, useDragDrop, useDropZone, useEditor, useNode, useNodeDraggable, useNodeDroppable, useSelectedNode, useSidebarDraggable, useVariables, validateDocument };

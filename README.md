@@ -9,6 +9,7 @@ The open-source visual email editor for modern React applications.
 - 📱 **Responsive**: Mobile-friendly email templates
 - 🔧 **Customizable**: Extensible component registry
 - 📤 **Export**: HTML, JSON, and React code export
+- **Variables**: `{{variableName}}` in content with fallbacks; resolve when generating HTML
 
 ## Installation
 

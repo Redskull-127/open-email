@@ -6,4 +6,6 @@
 
 export { renderToHTML, renderToPlainText } from "./renderer/html-renderer";
 export { renderToReactEmail } from "./renderer/react-email-renderer";
+export { interpolateVariables, hasVariables, extractVariableNames } from "./utils/variable-interpolation";
+export type { VariableDefinitions } from "./utils/variable-interpolation";
 export type { EmailDocument, EmailNode } from "./types";

@@ -30,6 +30,9 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/server.ts
 var server_exports = {};
 __export(server_exports, {
+  extractVariableNames: () => extractVariableNames,
+  hasVariables: () => hasVariables,
+  interpolateVariables: () => interpolateVariables,
   renderToHTML: () => renderToHTML,
   renderToPlainText: () => renderToPlainText,
   renderToReactEmail: () => renderToReactEmail
@@ -52,6 +55,19 @@ function interpolateVariables(content, variableData, variableDefinitions) {
     if (data[key] !== void 0 && data[key] !== "") return data[key];
     return defs[key]?.fallback ?? "";
   });
+}
+function hasVariables(content) {
+  return typeof content === "string" && VARIABLE_PATTERN.test(content);
+}
+function extractVariableNames(content) {
+  if (typeof content !== "string") return [];
+  const names = /* @__PURE__ */ new Set();
+  let match;
+  const re = new RegExp(VARIABLE_PATTERN);
+  while ((match = re.exec(content)) !== null) {
+    names.add(match[1]);
+  }
+  return Array.from(names);
 }
 
 // src/renderer/react-email-renderer.ts
@@ -245,6 +261,9 @@ async function renderToPlainText(document, variableData) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  extractVariableNames,
+  hasVariables,
+  interpolateVariables,
   renderToHTML,
   renderToPlainText,
   renderToReactEmail

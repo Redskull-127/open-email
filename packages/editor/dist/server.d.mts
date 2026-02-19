@@ -42,4 +42,11 @@ declare function renderToPlainText(document: EmailDocument, variableData?: Recor
 
 declare function renderToReactEmail(document: EmailDocument, variableData?: Record<string, string>): React.ReactElement;
 
-export { type EmailDocument, type EmailNode, renderToHTML, renderToPlainText, renderToReactEmail };
+type VariableDefinitions = Record<string, {
+    fallback: string;
+}>;
+declare function interpolateVariables(content: string, variableData: Record<string, string | undefined> | undefined, variableDefinitions: VariableDefinitions | undefined): string;
+declare function hasVariables(content: string): boolean;
+declare function extractVariableNames(content: string): string[];
+
+export { type EmailDocument, type EmailNode, type VariableDefinitions, extractVariableNames, hasVariables, interpolateVariables, renderToHTML, renderToPlainText, renderToReactEmail };

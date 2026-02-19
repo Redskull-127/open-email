@@ -15,6 +15,19 @@ function interpolateVariables(content, variableData, variableDefinitions) {
     return defs[key]?.fallback ?? "";
   });
 }
+function hasVariables(content) {
+  return typeof content === "string" && VARIABLE_PATTERN.test(content);
+}
+function extractVariableNames(content) {
+  if (typeof content !== "string") return [];
+  const names = /* @__PURE__ */ new Set();
+  let match;
+  const re = new RegExp(VARIABLE_PATTERN);
+  while ((match = re.exec(content)) !== null) {
+    names.add(match[1]);
+  }
+  return Array.from(names);
+}
 
 // src/renderer/react-email-renderer.ts
 import {
@@ -221,6 +234,9 @@ async function renderToPlainText(document, variableData) {
   return text;
 }
 export {
+  extractVariableNames,
+  hasVariables,
+  interpolateVariables,
   renderToHTML,
   renderToPlainText,
   renderToReactEmail

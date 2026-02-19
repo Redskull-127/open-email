@@ -1,6 +1,6 @@
 {
   "name": "@open-email/editor",
-  "version": "0.1.4",
+  "version": "0.1.47",
   "description": "Open-source visual email editor built on React Email — shadcn-style customizable components",
   "keywords": [
     "react",
@@ -19,6 +19,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.mjs",
+      "require": "./dist/server.js"
     },
     "./styles.css": "./dist/styles.css"
   },
@@ -41,7 +46,7 @@
     "*.css"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && tsup --config tsup.server.config.ts",
     "dev": "tsup --watch",
     "lint": "tsc --noEmit",
     "clean": "rm -rf dist"

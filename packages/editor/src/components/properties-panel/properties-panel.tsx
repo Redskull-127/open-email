@@ -7,7 +7,8 @@ import { PropertiesPanelEmpty } from "./properties-panel-empty";
 import { PropertiesPanelHeader } from "./properties-panel-header";
 import { VariableInserter } from "./variable-inserter";
 import { PropertiesGroup } from "./properties-group";
-import { CONTENT_NODE_TYPES, CONTENT_KEY, GROUP_ORDER, resolveValue } from "./utils";
+import { CONTENT_NODE_TYPES, CONTENT_KEY, GROUP_ORDER } from "./utils";
+import { buildNodePatchFromPropertyKey } from "../../utils/node-props";
 
 export interface PropertiesPanelProps {
   className?: string;
@@ -35,27 +36,10 @@ export function PropertiesPanel({ className, registry }: PropertiesPanelProps) {
   const handlePropertyChange = useCallback(
     (key: string, value: unknown) => {
       if (!selectedNodeId) return;
-
-      // Handle dotted keys (e.g., "style.color")
-      if (key.includes(".")) {
-        const parts = key.split(".");
-        // For now we handle 2-level deep (e.g., style.color)
-        if (parts.length === 2) {
-          const [parent, child] = parts;
-          updateNode(selectedNodeId, {
-            [parent]: {
-              ...((resolveValue(selectedNode?.props ?? {}, parent) as Record<
-                string,
-                unknown
-              >) ?? {}),
-              [child]: value === "" ? undefined : value,
-            },
-          });
-          return;
-        }
-      }
-
-      updateNode(selectedNodeId, { [key]: value === "" ? undefined : value });
+      updateNode(
+        selectedNodeId,
+        buildNodePatchFromPropertyKey(selectedNode?.props ?? {}, key, value),
+      );
     },
     [selectedNodeId, selectedNode, updateNode],
   );

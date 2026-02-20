@@ -4,7 +4,14 @@ import { defaultRegistry } from "../registry/component-registry";
 import { exportToJSON, importFromJSON } from "../renderer/json-renderer";
 import { renderToHTML } from "../renderer/html-renderer";
 import type { EmailNode } from "../types";
-import { useNodeDraggable, useDropZone, useContainerDropZone, useNodeDroppable, useDragDrop } from "./dnd";
+import { useNodeDraggable, useDropZone, useContainerDropZone, useNodeDroppable } from "./dnd";
+import { buildNodePatchFromPropertyKey } from "../utils/node-props";
+import {
+    InlineTextEditor,
+    getInlineContentKey,
+    isInlineEditableNodeType,
+    isInlineMultiline,
+} from "./inline-editing";
 
 interface DropIndicatorProps {
     parentId: string;
@@ -38,12 +45,22 @@ interface CanvasNodeProps {
     node: EmailNode;
     parentId: string;
     index: number;
+    editingNodeId: string | null;
+    setEditingNodeId: (nodeId: string | null) => void;
 }
 
-function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElement {
-    const { selectedNodeId, selectNode } = useEditor();
-    const { activeData } = useDragDrop();
+function CanvasNode({
+    node,
+    parentId,
+    index,
+    editingNodeId,
+    setEditingNodeId,
+}: CanvasNodeProps): React.ReactElement {
+    const { selectedNodeId, selectNode, updateNode } = useEditor();
     const isSelected = selectedNodeId === node.id;
+    const isInlineEditable = isInlineEditableNodeType(node.type);
+    const inlineContentKey = getInlineContentKey(node.type);
+    const isEditingInline = isInlineEditable && editingNodeId === node.id;
     const def = defaultRegistry.get(node.type);
     const label = def?.label ?? node.type;
     const hasChildren = node.children && node.children.length > 0;
@@ -68,6 +85,19 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
         },
         [setDragRef, setDropRef]
     );
+
+    const handleInlineCommit = useCallback((value: string) => {
+        if (!inlineContentKey) return;
+        updateNode(
+            node.id,
+            buildNodePatchFromPropertyKey(node.props, inlineContentKey, value)
+        );
+        setEditingNodeId(null);
+    }, [inlineContentKey, updateNode, node.id, node.props, setEditingNodeId]);
+
+    const handleInlineCancel = useCallback(() => {
+        setEditingNodeId(null);
+    }, [setEditingNodeId]);
 
 
     const renderChildren = (): React.ReactNode => {
@@ -96,6 +126,8 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
                     node: children[i],
                     parentId: node.id,
                     index: i,
+                    editingNodeId,
+                    setEditingNodeId,
                 }),
                 React.createElement(DropIndicator, {
                     key: `drop-${node.id}-${i + 1}`,
@@ -169,21 +201,30 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
             }
 
             case "text":
-                return React.createElement(
-                    "p",
-                    {
-                        className: nodeClassName,
-                        style: {
-                            margin: "0",
-                            padding: "4px 0",
-                            fontSize: "14px",
-                            lineHeight: "1.6",
-                            color: "#374151",
-                            ...style,
-                        },
-                    },
-                    (node.props.content as string) ?? ""
-                );
+                return React.createElement(InlineTextEditor, {
+                    isEditing: isEditingInline,
+                    multiline: isInlineMultiline(node.type),
+                    value: (node.props.content as string) ?? "",
+                    placeholder: "Type your text here...",
+                    onCommit: handleInlineCommit,
+                    onCancel: handleInlineCancel,
+                    renderDisplay: (value: string) =>
+                        React.createElement(
+                            "p",
+                            {
+                                className: nodeClassName,
+                                style: {
+                                    margin: "0",
+                                    padding: "4px 0",
+                                    fontSize: "14px",
+                                    lineHeight: "1.6",
+                                    color: "#374151",
+                                    ...style,
+                                },
+                            },
+                            value
+                        ),
+                });
 
             case "heading": {
                 const Tag = (node.props.as as string) ?? "h2";
@@ -191,21 +232,30 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
                     h1: "32px", h2: "24px", h3: "20px",
                     h4: "18px", h5: "16px", h6: "14px",
                 };
-                return React.createElement(
-                    Tag,
-                    {
-                        className: nodeClassName,
-                        style: {
-                            margin: "0",
-                            padding: "4px 0",
-                            fontSize: sizeMap[Tag] ?? "24px",
-                            fontWeight: "bold",
-                            color: "#111827",
-                            ...style,
-                        },
-                    },
-                    (node.props.content as string) ?? ""
-                );
+                return React.createElement(InlineTextEditor, {
+                    isEditing: isEditingInline,
+                    multiline: isInlineMultiline(node.type),
+                    value: (node.props.content as string) ?? "",
+                    placeholder: "Heading",
+                    onCommit: handleInlineCommit,
+                    onCancel: handleInlineCancel,
+                    renderDisplay: (value: string) =>
+                        React.createElement(
+                            Tag,
+                            {
+                                className: nodeClassName,
+                                style: {
+                                    margin: "0",
+                                    padding: "4px 0",
+                                    fontSize: sizeMap[Tag] ?? "24px",
+                                    fontWeight: "bold",
+                                    color: "#111827",
+                                    ...style,
+                                },
+                            },
+                            value
+                        ),
+                });
             }
 
             case "button":
@@ -426,21 +476,30 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
                     return elements.length > 0 ? elements : null;
                 };
 
-                return React.createElement(
-                    "div",
-                    {
-                        className: nodeClassName,
-                        style: {
-                            fontSize,
-                            fontFamily,
-                            lineHeight,
-                            color: textColor,
-                            padding: "8px 0",
-                            ...style,
-                        },
-                    },
-                    renderMarkdown(content)
-                );
+                return React.createElement(InlineTextEditor, {
+                    isEditing: isEditingInline,
+                    multiline: isInlineMultiline(node.type),
+                    value: content,
+                    placeholder: "Type markdown...",
+                    onCommit: handleInlineCommit,
+                    onCancel: handleInlineCancel,
+                    renderDisplay: (value: string) =>
+                        React.createElement(
+                            "div",
+                            {
+                                className: nodeClassName,
+                                style: {
+                                    fontSize,
+                                    fontFamily,
+                                    lineHeight,
+                                    color: textColor,
+                                    padding: "8px 0",
+                                    ...style,
+                                },
+                            },
+                            renderMarkdown(value)
+                        ),
+                });
             }
 
             case "html": {
@@ -496,18 +555,27 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
     };
 
     const isDropTarget = isOver && !isDragging;
+    const dragProps = isEditingInline ? {} : { ...listeners, ...attributes };
+    const handleNodeClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        selectNode(node.id);
+        if (isInlineEditable) {
+            setEditingNodeId(node.id);
+        } else {
+            setEditingNodeId(null);
+        }
+    };
 
     return React.createElement(
         "div",
         {
             ref: mergedRef,
-            className: `oe-canvas-node ${isDragging ? "oe-dragging" : ""} ${isDropTarget ? "oe-drop-target" : ""}`,
+            className: `oe-canvas-node ${isDragging ? "oe-dragging" : ""} ${isDropTarget ? "oe-drop-target" : ""} ${isEditingInline ? "oe-inline-editing" : ""}`,
             "data-selected": isSelected ? "true" : "false",
             "data-label": label,
             "data-node-id": node.id,
-            onClick: (e: React.MouseEvent) => { e.stopPropagation(); selectNode(node.id); },
-            ...listeners,
-            ...attributes,
+            onClick: handleNodeClick,
+            ...dragProps,
         },
         renderContent()
     );
@@ -526,6 +594,7 @@ function getEmptyLabel(type: string): string {
 
 function VisualCanvas() {
     const { document, selectNode } = useEditor();
+    const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
     const tailwindEnabled = document.meta.tailwind?.enabled ?? false;
     const tailwindConfig = document.meta.tailwind?.config;
 
@@ -588,6 +657,7 @@ function VisualCanvas() {
 
     const handleCanvasClick = useCallback((e: React.MouseEvent) => {
         if ((e.target as HTMLElement).closest("a")) e.preventDefault();
+        setEditingNodeId(null);
         selectNode(null);
     }, [selectNode]);
 
@@ -601,6 +671,8 @@ function VisualCanvas() {
                 node: document.body,
                 parentId: "__root__",
                 index: 0,
+                editingNodeId,
+                setEditingNodeId,
             })
         )
     );

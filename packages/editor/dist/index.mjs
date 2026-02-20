@@ -1476,7 +1476,7 @@ var require_prism = __commonJS({
 });
 
 // src/components/email-editor.tsx
-import React17 from "react";
+import React18 from "react";
 
 // src/engine/editor-store.ts
 import React, {
@@ -17069,25 +17069,156 @@ function EditorSidebar({
 }
 
 // src/components/editor-canvas.tsx
-import React10, { useCallback as useCallback6, useState as useState5, useEffect as useEffect2, useRef as useRef2, useMemo as useMemo5 } from "react";
+import React11, { useCallback as useCallback6, useState as useState6, useEffect as useEffect3, useRef as useRef3, useMemo as useMemo5 } from "react";
+
+// src/utils/node-props.ts
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function normalizeNodePropValue(value) {
+  return value === "" ? void 0 : value;
+}
+function setNestedPath(source, path, value) {
+  if (path.length === 0) return source;
+  const [head, ...tail] = path;
+  if (tail.length === 0) {
+    return { ...source, [head]: value };
+  }
+  const current = source[head];
+  const nextSource = isRecord(current) ? current : {};
+  return {
+    ...source,
+    [head]: setNestedPath(nextSource, tail, value)
+  };
+}
+function buildNodePatchFromPropertyKey(nodeProps, key, value) {
+  const normalizedValue = normalizeNodePropValue(value);
+  if (!key.includes(".")) {
+    return { [key]: normalizedValue };
+  }
+  const [root, ...path] = key.split(".");
+  const existingRoot = nodeProps[root];
+  const rootRecord = isRecord(existingRoot) ? existingRoot : {};
+  return {
+    [root]: setNestedPath(rootRecord, path, normalizedValue)
+  };
+}
+
+// src/components/inline-editing/inline-text-editor.tsx
+import React10, { useEffect as useEffect2, useRef as useRef2, useState as useState5 } from "react";
+function InlineTextEditor({
+  isEditing,
+  value,
+  multiline = false,
+  placeholder,
+  onCommit,
+  onCancel,
+  renderDisplay
+}) {
+  const [draft, setDraft] = useState5(value);
+  const inputRef = useRef2(null);
+  useEffect2(() => {
+    setDraft(value);
+  }, [value, isEditing]);
+  useEffect2(() => {
+    if (!isEditing || !inputRef.current) return;
+    inputRef.current.focus();
+    const length = inputRef.current.value.length;
+    inputRef.current.setSelectionRange(length, length);
+  }, [isEditing]);
+  if (!isEditing) {
+    return renderDisplay(value);
+  }
+  const handleCommit = () => {
+    onCommit(draft);
+  };
+  const handleCancel = () => {
+    setDraft(value);
+    onCancel();
+  };
+  const handleKeyDown = (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      handleCancel();
+      return;
+    }
+    if (e.key === "Enter" && (!multiline || e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleCommit();
+    }
+  };
+  if (multiline) {
+    return React10.createElement("textarea", {
+      ref: inputRef,
+      className: "oe-inline-editor-input oe-inline-editor-textarea",
+      value: draft,
+      placeholder,
+      onChange: (e) => setDraft(e.target.value),
+      onBlur: handleCommit,
+      onKeyDown: handleKeyDown,
+      onClick: (e) => e.stopPropagation(),
+      onPointerDown: (e) => e.stopPropagation()
+    });
+  }
+  return React10.createElement("input", {
+    ref: inputRef,
+    type: "text",
+    className: "oe-inline-editor-input",
+    value: draft,
+    placeholder,
+    onChange: (e) => setDraft(e.target.value),
+    onBlur: handleCommit,
+    onKeyDown: handleKeyDown,
+    onClick: (e) => e.stopPropagation(),
+    onPointerDown: (e) => e.stopPropagation()
+  });
+}
+
+// src/components/inline-editing/inline-editing-utils.ts
+var INLINE_EDITABLE_NODE_TYPES = ["text", "heading", "markdown"];
+var INLINE_EDITABLE_NODE_TYPE_SET = new Set(
+  INLINE_EDITABLE_NODE_TYPES
+);
+function isInlineEditableNodeType(type) {
+  return INLINE_EDITABLE_NODE_TYPE_SET.has(type);
+}
+function getInlineContentKey(type) {
+  if (!isInlineEditableNodeType(type)) return null;
+  return "content";
+}
+function isInlineMultiline(type) {
+  return type !== "heading";
+}
+
+// src/components/editor-canvas.tsx
 function DropIndicator({ parentId, index }) {
   const { setNodeRef, isOver } = useDropZone(parentId, index);
-  return React10.createElement("div", {
+  return React11.createElement("div", {
     ref: setNodeRef,
     className: `oe-drop-indicator ${isOver ? "oe-drop-indicator-active" : ""}`
   });
 }
 function EmptyContainerDropZone({ containerId, label }) {
   const { setNodeRef, isOver } = useContainerDropZone(containerId);
-  return React10.createElement("div", {
+  return React11.createElement("div", {
     ref: setNodeRef,
     className: `oe-drop-zone ${isOver ? "oe-drop-zone-active" : ""}`
   }, label ?? "+ Drop component here");
 }
-function CanvasNode({ node, parentId, index }) {
-  const { selectedNodeId, selectNode } = useEditor();
-  const { activeData } = useDragDrop();
+function CanvasNode({
+  node,
+  parentId,
+  index,
+  editingNodeId,
+  setEditingNodeId
+}) {
+  const { selectedNodeId, selectNode, updateNode: updateNode2 } = useEditor();
   const isSelected = selectedNodeId === node.id;
+  const isInlineEditable = isInlineEditableNodeType(node.type);
+  const inlineContentKey = getInlineContentKey(node.type);
+  const isEditingInline = isInlineEditable && editingNodeId === node.id;
   const def = defaultRegistry.get(node.type);
   const label = def?.label ?? node.type;
   const hasChildren = node.children && node.children.length > 0;
@@ -17109,17 +17240,28 @@ function CanvasNode({ node, parentId, index }) {
     },
     [setDragRef, setDropRef]
   );
+  const handleInlineCommit = useCallback6((value) => {
+    if (!inlineContentKey) return;
+    updateNode2(
+      node.id,
+      buildNodePatchFromPropertyKey(node.props, inlineContentKey, value)
+    );
+    setEditingNodeId(null);
+  }, [inlineContentKey, updateNode2, node.id, node.props, setEditingNodeId]);
+  const handleInlineCancel = useCallback6(() => {
+    setEditingNodeId(null);
+  }, [setEditingNodeId]);
   const renderChildren = () => {
     if (!acceptsChildren) return null;
     if (!hasChildren) {
-      return React10.createElement(EmptyContainerDropZone, {
+      return React11.createElement(EmptyContainerDropZone, {
         containerId: node.id,
         label: getEmptyLabel(node.type)
       });
     }
     const children = node.children;
     const elements = [
-      React10.createElement(DropIndicator, {
+      React11.createElement(DropIndicator, {
         key: `drop-${node.id}-0`,
         parentId: node.id,
         index: 0
@@ -17127,13 +17269,15 @@ function CanvasNode({ node, parentId, index }) {
     ];
     for (let i = 0; i < children.length; i++) {
       elements.push(
-        React10.createElement(CanvasNode, {
+        React11.createElement(CanvasNode, {
           key: children[i].id,
           node: children[i],
           parentId: node.id,
-          index: i
+          index: i,
+          editingNodeId,
+          setEditingNodeId
         }),
-        React10.createElement(DropIndicator, {
+        React11.createElement(DropIndicator, {
           key: `drop-${node.id}-${i + 1}`,
           parentId: node.id,
           index: i + 1
@@ -17147,7 +17291,7 @@ function CanvasNode({ node, parentId, index }) {
     const nodeClassName = node.props.className || void 0;
     switch (node.type) {
       case "container":
-        return React10.createElement(
+        return React11.createElement(
           "div",
           {
             className: nodeClassName,
@@ -17161,13 +17305,13 @@ function CanvasNode({ node, parentId, index }) {
           renderChildren()
         );
       case "section":
-        return React10.createElement(
+        return React11.createElement(
           "div",
           { className: nodeClassName, style: { padding: "10px 0", ...style } },
           renderChildren()
         );
       case "row":
-        return React10.createElement(
+        return React11.createElement(
           "div",
           {
             className: nodeClassName,
@@ -17180,7 +17324,7 @@ function CanvasNode({ node, parentId, index }) {
         let justifyContent = "flex-start";
         if (verticalAlign === "middle") justifyContent = "center";
         if (verticalAlign === "bottom") justifyContent = "flex-end";
-        return React10.createElement(
+        return React11.createElement(
           "div",
           {
             className: nodeClassName,
@@ -17197,21 +17341,29 @@ function CanvasNode({ node, parentId, index }) {
         );
       }
       case "text":
-        return React10.createElement(
-          "p",
-          {
-            className: nodeClassName,
-            style: {
-              margin: "0",
-              padding: "4px 0",
-              fontSize: "14px",
-              lineHeight: "1.6",
-              color: "#374151",
-              ...style
-            }
-          },
-          node.props.content ?? ""
-        );
+        return React11.createElement(InlineTextEditor, {
+          isEditing: isEditingInline,
+          multiline: isInlineMultiline(node.type),
+          value: node.props.content ?? "",
+          placeholder: "Type your text here...",
+          onCommit: handleInlineCommit,
+          onCancel: handleInlineCancel,
+          renderDisplay: (value) => React11.createElement(
+            "p",
+            {
+              className: nodeClassName,
+              style: {
+                margin: "0",
+                padding: "4px 0",
+                fontSize: "14px",
+                lineHeight: "1.6",
+                color: "#374151",
+                ...style
+              }
+            },
+            value
+          )
+        });
       case "heading": {
         const Tag = node.props.as ?? "h2";
         const sizeMap = {
@@ -17222,27 +17374,35 @@ function CanvasNode({ node, parentId, index }) {
           h5: "16px",
           h6: "14px"
         };
-        return React10.createElement(
-          Tag,
-          {
-            className: nodeClassName,
-            style: {
-              margin: "0",
-              padding: "4px 0",
-              fontSize: sizeMap[Tag] ?? "24px",
-              fontWeight: "bold",
-              color: "#111827",
-              ...style
-            }
-          },
-          node.props.content ?? ""
-        );
+        return React11.createElement(InlineTextEditor, {
+          isEditing: isEditingInline,
+          multiline: isInlineMultiline(node.type),
+          value: node.props.content ?? "",
+          placeholder: "Heading",
+          onCommit: handleInlineCommit,
+          onCancel: handleInlineCancel,
+          renderDisplay: (value) => React11.createElement(
+            Tag,
+            {
+              className: nodeClassName,
+              style: {
+                margin: "0",
+                padding: "4px 0",
+                fontSize: sizeMap[Tag] ?? "24px",
+                fontWeight: "bold",
+                color: "#111827",
+                ...style
+              }
+            },
+            value
+          )
+        });
       }
       case "button":
-        return React10.createElement(
+        return React11.createElement(
           "div",
           { style: { padding: "4px 0" } },
-          React10.createElement(
+          React11.createElement(
             "a",
             {
               className: nodeClassName,
@@ -17265,7 +17425,7 @@ function CanvasNode({ node, parentId, index }) {
           )
         );
       case "image":
-        return React10.createElement("img", {
+        return React11.createElement("img", {
           className: nodeClassName,
           src: node.props.src ?? "https://placehold.co/600x200/e2e8f0/64748b?text=Image",
           alt: node.props.alt ?? "",
@@ -17279,7 +17439,7 @@ function CanvasNode({ node, parentId, index }) {
           }
         });
       case "link":
-        return React10.createElement(
+        return React11.createElement(
           "a",
           {
             className: nodeClassName,
@@ -17295,7 +17455,7 @@ function CanvasNode({ node, parentId, index }) {
           node.props.content ?? "Link"
         );
       case "hr":
-        return React10.createElement("hr", {
+        return React11.createElement("hr", {
           className: nodeClassName,
           style: {
             border: "none",
@@ -17305,13 +17465,13 @@ function CanvasNode({ node, parentId, index }) {
           }
         });
       case "spacer":
-        return React10.createElement("div", {
+        return React11.createElement("div", {
           className: nodeClassName,
           style: { height: node.props.height ?? "20px", ...style }
         });
       case "code-inline": {
         const code = node.props.code ?? "";
-        return React10.createElement(
+        return React11.createElement(
           "code",
           {
             className: nodeClassName,
@@ -17331,7 +17491,7 @@ function CanvasNode({ node, parentId, index }) {
       }
       case "code-block": {
         const code = node.props.code ?? "";
-        return React10.createElement(
+        return React11.createElement(
           "pre",
           {
             className: nodeClassName,
@@ -17349,7 +17509,7 @@ function CanvasNode({ node, parentId, index }) {
               ...style
             }
           },
-          React10.createElement("code", { style: { display: "block", fontFamily: "inherit" } }, code)
+          React11.createElement("code", { style: { display: "block", fontFamily: "inherit" } }, code)
         );
       }
       case "markdown": {
@@ -17365,12 +17525,12 @@ function CanvasNode({ node, parentId, index }) {
           for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             if (!line.trim() && i < lines.length - 1) {
-              elements.push(React10.createElement("br", { key: `br-${i}` }));
+              elements.push(React11.createElement("br", { key: `br-${i}` }));
               continue;
             }
             if (line.startsWith("# ")) {
               elements.push(
-                React10.createElement(
+                React11.createElement(
                   "h1",
                   {
                     key: `h1-${i}`,
@@ -17386,7 +17546,7 @@ function CanvasNode({ node, parentId, index }) {
               );
             } else if (line.startsWith("## ")) {
               elements.push(
-                React10.createElement(
+                React11.createElement(
                   "h2",
                   {
                     key: `h2-${i}`,
@@ -17402,7 +17562,7 @@ function CanvasNode({ node, parentId, index }) {
               );
             } else if (line.startsWith("### ")) {
               elements.push(
-                React10.createElement(
+                React11.createElement(
                   "h3",
                   {
                     key: `h3-${i}`,
@@ -17422,7 +17582,7 @@ function CanvasNode({ node, parentId, index }) {
               processedLine = processedLine.replace(/\*(.+?)\*/g, "<em>$1</em>");
               processedLine = processedLine.replace(/`(.+?)`/g, "<code style='background: #f3f4f6; padding: 2px 4px; border-radius: 3px; font-family: monospace;'>$1</code>");
               elements.push(
-                React10.createElement(
+                React11.createElement(
                   "p",
                   {
                     key: `p-${i}`,
@@ -17438,32 +17598,40 @@ function CanvasNode({ node, parentId, index }) {
           }
           return elements.length > 0 ? elements : null;
         };
-        return React10.createElement(
-          "div",
-          {
-            className: nodeClassName,
-            style: {
-              fontSize,
-              fontFamily,
-              lineHeight,
-              color: textColor,
-              padding: "8px 0",
-              ...style
-            }
-          },
-          renderMarkdown(content)
-        );
+        return React11.createElement(InlineTextEditor, {
+          isEditing: isEditingInline,
+          multiline: isInlineMultiline(node.type),
+          value: content,
+          placeholder: "Type markdown...",
+          onCommit: handleInlineCommit,
+          onCancel: handleInlineCancel,
+          renderDisplay: (value) => React11.createElement(
+            "div",
+            {
+              className: nodeClassName,
+              style: {
+                fontSize,
+                fontFamily,
+                lineHeight,
+                color: textColor,
+                padding: "8px 0",
+                ...style
+              }
+            },
+            renderMarkdown(value)
+          )
+        });
       }
       case "html": {
         const html = node.props.content ?? "";
-        return React10.createElement("div", {
+        return React11.createElement("div", {
           className: nodeClassName,
           style: { padding: "4px 0", ...style },
           dangerouslySetInnerHTML: { __html: html }
         });
       }
       case "tailwind":
-        return React10.createElement(
+        return React11.createElement(
           "div",
           {
             className: nodeClassName,
@@ -17478,7 +17646,7 @@ function CanvasNode({ node, parentId, index }) {
         );
       case "font":
       case "preview":
-        return React10.createElement(
+        return React11.createElement(
           "div",
           {
             style: {
@@ -17493,7 +17661,7 @@ function CanvasNode({ node, parentId, index }) {
           node.type === "font" ? `Font: ${node.props.fontFamily ?? "Unnamed"}` : `Preview: ${node.props.content ?? "\u2026"}`
         );
       default:
-        return React10.createElement(
+        return React11.createElement(
           "div",
           { style: { padding: "8px", color: "#94a3b8", fontSize: "12px" } },
           `[${node.type}]`
@@ -17501,20 +17669,26 @@ function CanvasNode({ node, parentId, index }) {
     }
   };
   const isDropTarget = isOver && !isDragging;
-  return React10.createElement(
+  const dragProps = isEditingInline ? {} : { ...listeners, ...attributes };
+  const handleNodeClick = (e) => {
+    e.stopPropagation();
+    selectNode(node.id);
+    if (isInlineEditable) {
+      setEditingNodeId(node.id);
+    } else {
+      setEditingNodeId(null);
+    }
+  };
+  return React11.createElement(
     "div",
     {
       ref: mergedRef,
-      className: `oe-canvas-node ${isDragging ? "oe-dragging" : ""} ${isDropTarget ? "oe-drop-target" : ""}`,
+      className: `oe-canvas-node ${isDragging ? "oe-dragging" : ""} ${isDropTarget ? "oe-drop-target" : ""} ${isEditingInline ? "oe-inline-editing" : ""}`,
       "data-selected": isSelected ? "true" : "false",
       "data-label": label,
       "data-node-id": node.id,
-      onClick: (e) => {
-        e.stopPropagation();
-        selectNode(node.id);
-      },
-      ...listeners,
-      ...attributes
+      onClick: handleNodeClick,
+      ...dragProps
     },
     renderContent()
   );
@@ -17537,14 +17711,15 @@ function getEmptyLabel(type) {
 }
 function VisualCanvas() {
   const { document: document2, selectNode } = useEditor();
+  const [editingNodeId, setEditingNodeId] = useState6(null);
   const tailwindEnabled = document2.meta.tailwind?.enabled ?? false;
   const tailwindConfig = document2.meta.tailwind?.config;
-  useEffect2(() => {
+  useEffect3(() => {
     if (tailwindEnabled) {
       window.tailwind?.scan?.();
     }
   }, [document2.body, tailwindEnabled]);
-  useEffect2(() => {
+  useEffect3(() => {
     const SCRIPT_ID = "oe-tailwind-cdn";
     if (!tailwindEnabled) {
       window.document.getElementById(SCRIPT_ID)?.remove();
@@ -17585,27 +17760,30 @@ function VisualCanvas() {
   }, [tailwindEnabled, tailwindConfig]);
   const handleCanvasClick = useCallback6((e) => {
     if (e.target.closest("a")) e.preventDefault();
+    setEditingNodeId(null);
     selectNode(null);
   }, [selectNode]);
-  return React10.createElement(
+  return React11.createElement(
     "div",
     { className: "oe-canvas", onClick: handleCanvasClick },
-    React10.createElement(
+    React11.createElement(
       "div",
       { className: "oe-canvas-inner" },
-      React10.createElement(CanvasNode, {
+      React11.createElement(CanvasNode, {
         node: document2.body,
         parentId: "__root__",
-        index: 0
+        index: 0,
+        editingNodeId,
+        setEditingNodeId
       })
     )
   );
 }
 function CodeCanvas() {
   const { document: document2, setDocument } = useEditor();
-  const [code, setCode] = useState5(() => exportToJSON(document2));
-  const [error, setError] = useState5(null);
-  useEffect2(() => {
+  const [code, setCode] = useState6(() => exportToJSON(document2));
+  const [error, setError] = useState6(null);
+  useEffect3(() => {
     setCode(exportToJSON(document2));
   }, [document2]);
   const handleChange = useCallback6((e) => {
@@ -17619,10 +17797,10 @@ function CodeCanvas() {
       setError(err.message);
     }
   }, [setDocument]);
-  return React10.createElement(
+  return React11.createElement(
     "div",
     { className: "oe-code-editor" },
-    error && React10.createElement(
+    error && React11.createElement(
       "div",
       {
         style: {
@@ -17636,7 +17814,7 @@ function CodeCanvas() {
       "\u26A0 ",
       error
     ),
-    React10.createElement("textarea", {
+    React11.createElement("textarea", {
       className: "oe-code-textarea",
       value: code,
       onChange: handleChange,
@@ -17646,9 +17824,9 @@ function CodeCanvas() {
 }
 function PreviewCanvas({ variableData }) {
   const { document: document2 } = useEditor();
-  const [html, setHtml] = useState5("");
-  const iframeRef = useRef2(null);
-  useEffect2(() => {
+  const [html, setHtml] = useState6("");
+  const iframeRef = useRef3(null);
+  useEffect3(() => {
     let cancelled = false;
     renderToHTML(document2, variableData).then((result) => {
       if (!cancelled) setHtml(result);
@@ -17657,7 +17835,7 @@ function PreviewCanvas({ variableData }) {
       cancelled = true;
     };
   }, [document2, variableData]);
-  useEffect2(() => {
+  useEffect3(() => {
     if (iframeRef.current && html) {
       const doc = iframeRef.current.contentDocument;
       if (doc) {
@@ -17667,10 +17845,10 @@ function PreviewCanvas({ variableData }) {
       }
     }
   }, [html]);
-  return React10.createElement(
+  return React11.createElement(
     "div",
     { className: "oe-preview" },
-    React10.createElement("iframe", {
+    React11.createElement("iframe", {
       ref: iframeRef,
       className: "oe-preview-iframe",
       title: "Email Preview",
@@ -17683,20 +17861,20 @@ function EditorCanvas({ className, variableData }) {
   const content = useMemo5(() => {
     switch (mode) {
       case "visual":
-        return React10.createElement(VisualCanvas, null);
+        return React11.createElement(VisualCanvas, null);
       case "code":
-        return React10.createElement(CodeCanvas, null);
+        return React11.createElement(CodeCanvas, null);
       case "preview":
-        return React10.createElement(PreviewCanvas, { variableData });
+        return React11.createElement(PreviewCanvas, { variableData });
       default:
-        return React10.createElement(VisualCanvas, null);
+        return React11.createElement(VisualCanvas, null);
     }
   }, [mode, variableData]);
   return content;
 }
 
 // src/components/properties-panel/properties-panel.tsx
-import React16, { useCallback as useCallback10, useMemo as useMemo7 } from "react";
+import React17, { useCallback as useCallback10, useMemo as useMemo7 } from "react";
 
 // src/utils/dom-helpers.ts
 function insertVariableIntoContent(existing, variableName) {
@@ -17706,7 +17884,7 @@ function insertVariableIntoContent(existing, variableName) {
 }
 
 // src/components/properties-panel/properties-panel-empty.tsx
-import React11, { useCallback as useCallback7, useState as useState6 } from "react";
+import React12, { useCallback as useCallback7, useState as useState7 } from "react";
 var FORMAT_OPTIONS = [
   { label: "WOFF2", value: "woff2" },
   { label: "WOFF", value: "woff" },
@@ -17725,26 +17903,26 @@ var WEIGHT_OPTIONS = [
   { label: "900 \u2014 Black", value: "900" }
 ];
 function FontCard({ font, index, expanded, onToggle, onChange, onRemove }) {
-  return React11.createElement(
+  return React12.createElement(
     "div",
     { className: "oe-font-card" },
-    React11.createElement(
+    React12.createElement(
       "div",
       { className: "oe-font-card-header", onClick: onToggle },
-      React11.createElement(
+      React12.createElement(
         "div",
         { className: "oe-font-card-name" },
-        font.fontFamily || React11.createElement("span", { className: "oe-font-card-placeholder" }, "Unnamed font")
+        font.fontFamily || React12.createElement("span", { className: "oe-font-card-placeholder" }, "Unnamed font")
       ),
-      React11.createElement(
+      React12.createElement(
         "div",
         { className: "oe-font-card-actions" },
-        React11.createElement(
+        React12.createElement(
           "span",
           { className: `oe-font-card-chevron ${expanded ? "oe-font-card-chevron-open" : ""}` },
           "\u203A"
         ),
-        React11.createElement(
+        React12.createElement(
           "button",
           {
             type: "button",
@@ -17759,14 +17937,14 @@ function FontCard({ font, index, expanded, onToggle, onChange, onRemove }) {
         )
       )
     ),
-    expanded && React11.createElement(
+    expanded && React12.createElement(
       "div",
       { className: "oe-font-card-body" },
-      React11.createElement(
+      React12.createElement(
         "div",
         { className: "oe-field" },
-        React11.createElement("label", { className: "oe-field-label" }, "Font Family"),
-        React11.createElement("input", {
+        React12.createElement("label", { className: "oe-field-label" }, "Font Family"),
+        React12.createElement("input", {
           type: "text",
           className: "oe-field-input",
           placeholder: "e.g. Roboto",
@@ -17774,11 +17952,11 @@ function FontCard({ font, index, expanded, onToggle, onChange, onRemove }) {
           onChange: (e) => onChange(index, { fontFamily: e.target.value })
         })
       ),
-      React11.createElement(
+      React12.createElement(
         "div",
         { className: "oe-field" },
-        React11.createElement("label", { className: "oe-field-label" }, "Fallback Font"),
-        React11.createElement("input", {
+        React12.createElement("label", { className: "oe-field-label" }, "Fallback Font"),
+        React12.createElement("input", {
           type: "text",
           className: "oe-field-input",
           placeholder: "e.g. Arial, sans-serif",
@@ -17786,11 +17964,11 @@ function FontCard({ font, index, expanded, onToggle, onChange, onRemove }) {
           onChange: (e) => onChange(index, { fallbackFontFamily: e.target.value })
         })
       ),
-      React11.createElement(
+      React12.createElement(
         "div",
         { className: "oe-field" },
-        React11.createElement("label", { className: "oe-field-label" }, "Web Font URL"),
-        React11.createElement("input", {
+        React12.createElement("label", { className: "oe-field-label" }, "Web Font URL"),
+        React12.createElement("input", {
           type: "url",
           className: "oe-field-input",
           placeholder: "https://fonts.gstatic.com/\u2026",
@@ -17798,14 +17976,14 @@ function FontCard({ font, index, expanded, onToggle, onChange, onRemove }) {
           onChange: (e) => onChange(index, { webFontUrl: e.target.value })
         })
       ),
-      React11.createElement(
+      React12.createElement(
         "div",
         { className: "oe-field-row" },
-        React11.createElement(
+        React12.createElement(
           "div",
           { className: "oe-field" },
-          React11.createElement("label", { className: "oe-field-label" }, "Format"),
-          React11.createElement(
+          React12.createElement("label", { className: "oe-field-label" }, "Format"),
+          React12.createElement(
             "select",
             {
               className: "oe-field-input oe-field-select",
@@ -17813,15 +17991,15 @@ function FontCard({ font, index, expanded, onToggle, onChange, onRemove }) {
               onChange: (e) => onChange(index, { webFontFormat: e.target.value })
             },
             FORMAT_OPTIONS.map(
-              (o) => React11.createElement("option", { key: o.value, value: o.value }, o.label)
+              (o) => React12.createElement("option", { key: o.value, value: o.value }, o.label)
             )
           )
         ),
-        React11.createElement(
+        React12.createElement(
           "div",
           { className: "oe-field" },
-          React11.createElement("label", { className: "oe-field-label" }, "Weight"),
-          React11.createElement(
+          React12.createElement("label", { className: "oe-field-label" }, "Weight"),
+          React12.createElement(
             "select",
             {
               className: "oe-field-input oe-field-select",
@@ -17829,32 +18007,32 @@ function FontCard({ font, index, expanded, onToggle, onChange, onRemove }) {
               onChange: (e) => onChange(index, { fontWeight: e.target.value })
             },
             WEIGHT_OPTIONS.map(
-              (o) => React11.createElement("option", { key: o.value, value: o.value }, o.label)
+              (o) => React12.createElement("option", { key: o.value, value: o.value }, o.label)
             )
           )
         )
       ),
-      React11.createElement(
+      React12.createElement(
         "div",
         { className: "oe-field" },
-        React11.createElement("label", { className: "oe-field-label" }, "Style"),
-        React11.createElement(
+        React12.createElement("label", { className: "oe-field-label" }, "Style"),
+        React12.createElement(
           "select",
           {
             className: "oe-field-input oe-field-select",
             value: font.fontStyle ?? "normal",
             onChange: (e) => onChange(index, { fontStyle: e.target.value })
           },
-          React11.createElement("option", { value: "normal" }, "Normal"),
-          React11.createElement("option", { value: "italic" }, "Italic"),
-          React11.createElement("option", { value: "oblique" }, "Oblique")
+          React12.createElement("option", { value: "normal" }, "Normal"),
+          React12.createElement("option", { value: "italic" }, "Italic"),
+          React12.createElement("option", { value: "oblique" }, "Oblique")
         )
       )
     )
   );
 }
 function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
-  const [expandedFonts, setExpandedFonts] = useState6(/* @__PURE__ */ new Set());
+  const [expandedFonts, setExpandedFonts] = useState7(/* @__PURE__ */ new Set());
   const handleField = useCallback7(
     (key) => (e) => {
       onMetaChange?.({ [key]: e.target.value });
@@ -17910,18 +18088,18 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
   }, []);
   const tailwindEnabled = meta?.tailwind?.enabled ?? true;
   const fonts = meta?.fonts ?? [];
-  return React11.createElement(
+  return React12.createElement(
     "div",
     { className: `oe-properties ${className ?? ""}` },
-    React11.createElement(
+    React12.createElement(
       "div",
       { className: "oe-properties-group" },
-      React11.createElement("div", { className: "oe-properties-group-title" }, "Document"),
-      React11.createElement(
+      React12.createElement("div", { className: "oe-properties-group-title" }, "Document"),
+      React12.createElement(
         "div",
         { className: "oe-field" },
-        React11.createElement("label", { className: "oe-field-label" }, "Title"),
-        React11.createElement("input", {
+        React12.createElement("label", { className: "oe-field-label" }, "Title"),
+        React12.createElement("input", {
           type: "text",
           className: "oe-field-input",
           placeholder: "My Email Template",
@@ -17929,11 +18107,11 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
           onChange: handleField("title")
         })
       ),
-      React11.createElement(
+      React12.createElement(
         "div",
         { className: "oe-field" },
-        React11.createElement("label", { className: "oe-field-label" }, "Subject Line"),
-        React11.createElement("input", {
+        React12.createElement("label", { className: "oe-field-label" }, "Subject Line"),
+        React12.createElement("input", {
           type: "text",
           className: "oe-field-input",
           placeholder: "Your email subject...",
@@ -17941,11 +18119,11 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
           onChange: handleField("subject")
         })
       ),
-      React11.createElement(
+      React12.createElement(
         "div",
         { className: "oe-field" },
-        React11.createElement("label", { className: "oe-field-label" }, "Preview Text"),
-        React11.createElement("input", {
+        React12.createElement("label", { className: "oe-field-label" }, "Preview Text"),
+        React12.createElement("input", {
           type: "text",
           className: "oe-field-input",
           placeholder: "Short preview shown in inbox...",
@@ -17953,11 +18131,11 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
           onChange: handleField("previewText")
         })
       ),
-      React11.createElement(
+      React12.createElement(
         "div",
         { className: "oe-field" },
-        React11.createElement("label", { className: "oe-field-label" }, "Description"),
-        React11.createElement("textarea", {
+        React12.createElement("label", { className: "oe-field-label" }, "Description"),
+        React12.createElement("textarea", {
           className: "oe-field-input oe-field-textarea",
           placeholder: "Internal notes...",
           rows: 2,
@@ -17966,26 +18144,26 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
         })
       )
     ),
-    React11.createElement(
+    React12.createElement(
       "div",
       { className: "oe-properties-group" },
-      React11.createElement(
+      React12.createElement(
         "div",
         { className: "oe-properties-group-header" },
-        React11.createElement("div", { className: "oe-properties-group-title" }, "Web Fonts"),
-        React11.createElement(
+        React12.createElement("div", { className: "oe-properties-group-title" }, "Web Fonts"),
+        React12.createElement(
           "button",
           { type: "button", className: "oe-btn oe-btn-xs", onClick: handleAddFont },
           "+ Add font"
         )
       ),
-      fonts.length === 0 && React11.createElement(
+      fonts.length === 0 && React12.createElement(
         "p",
         { className: "oe-properties-empty-hint" },
         "No fonts added yet. Add a web font to use custom typography."
       ),
       ...fonts.map(
-        (font, i) => React11.createElement(FontCard, {
+        (font, i) => React12.createElement(FontCard, {
           key: i,
           font,
           index: i,
@@ -17996,17 +18174,17 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
         })
       )
     ),
-    React11.createElement(
+    React12.createElement(
       "div",
       { className: "oe-properties-group" },
-      React11.createElement("div", { className: "oe-properties-group-title" }, "Tailwind CSS"),
-      React11.createElement(
+      React12.createElement("div", { className: "oe-properties-group-title" }, "Tailwind CSS"),
+      React12.createElement(
         "div",
         { className: "oe-field" },
-        React11.createElement(
+        React12.createElement(
           "label",
           { className: "oe-field-label oe-field-label-row" },
-          React11.createElement("input", {
+          React12.createElement("input", {
             type: "checkbox",
             checked: tailwindEnabled,
             onChange: handleTailwindToggle
@@ -18014,11 +18192,11 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
           "Enable Tailwind CSS"
         )
       ),
-      tailwindEnabled && React11.createElement(
+      tailwindEnabled && React12.createElement(
         "div",
         { className: "oe-field" },
-        React11.createElement("label", { className: "oe-field-label" }, "Theme Config (JSON)"),
-        React11.createElement("textarea", {
+        React12.createElement("label", { className: "oe-field-label" }, "Theme Config (JSON)"),
+        React12.createElement("textarea", {
           className: "oe-field-input oe-field-textarea oe-field-mono",
           placeholder: '{"theme": {"extend": {"colors": {"brand": "#007291"}}}}',
           rows: 4,
@@ -18031,20 +18209,20 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
 }
 
 // src/components/properties-panel/properties-panel-header.tsx
-import React12 from "react";
+import React13 from "react";
 function PropertiesPanelHeader({
   title,
   onDelete
 }) {
-  return React12.createElement(
+  return React13.createElement(
     "div",
     { className: "oe-properties-header" },
-    React12.createElement(
+    React13.createElement(
       "span",
       { className: "oe-properties-title" },
       title
     ),
-    React12.createElement(
+    React13.createElement(
       "button",
       {
         className: "oe-btn-icon",
@@ -18052,13 +18230,13 @@ function PropertiesPanelHeader({
         title: "Delete element",
         style: { color: "var(--oe-danger)" }
       },
-      React12.createElement(Icons.trash, { size: 16 })
+      React13.createElement(Icons.trash, { size: 16 })
     )
   );
 }
 
 // src/components/properties-panel/variable-inserter.tsx
-import React13, { useCallback as useCallback8, useMemo as useMemo6, useState as useState7, useRef as useRef3, useEffect as useEffect3 } from "react";
+import React14, { useCallback as useCallback8, useMemo as useMemo6, useState as useState8, useRef as useRef4, useEffect as useEffect4 } from "react";
 
 // src/components/properties-panel/utils.ts
 var CONTENT_NODE_TYPES = ["text", "heading", "link", "button"];
@@ -18103,19 +18281,19 @@ function VariableInserter({
   onCreateAndInsert
 }) {
   const variables = useVariables();
-  const [variableSelectOpen, setVariableSelectOpen] = useState7(false);
-  const [variableSearch, setVariableSearch] = useState7("");
-  const [newVarName, setNewVarName] = useState7("");
-  const [newVarFallback, setNewVarFallback] = useState7("");
-  const [showCreateForm, setShowCreateForm] = useState7(false);
-  const searchInputRef = useRef3(null);
-  const comboboxRef = useRef3(null);
-  useEffect3(() => {
+  const [variableSelectOpen, setVariableSelectOpen] = useState8(false);
+  const [variableSearch, setVariableSearch] = useState8("");
+  const [newVarName, setNewVarName] = useState8("");
+  const [newVarFallback, setNewVarFallback] = useState8("");
+  const [showCreateForm, setShowCreateForm] = useState8(false);
+  const searchInputRef = useRef4(null);
+  const comboboxRef = useRef4(null);
+  useEffect4(() => {
     if (variableSelectOpen && searchInputRef.current) {
       searchInputRef.current.focus();
     }
   }, [variableSelectOpen]);
-  useEffect3(() => {
+  useEffect4(() => {
     const handleClickOutside = (e) => {
       if (comboboxRef.current && !comboboxRef.current.contains(e.target)) {
         setVariableSelectOpen(false);
@@ -18146,21 +18324,21 @@ function VariableInserter({
     return entries.filter(([name]) => name.toLowerCase().includes(search));
   }, [variables, variableSearch]);
   const variableCount = filteredVariables.length;
-  return React13.createElement(
+  return React14.createElement(
     "div",
     { className: "oe-properties-group" },
-    React13.createElement(
+    React14.createElement(
       "div",
       { className: "oe-properties-group-title" },
       "Insert variable"
     ),
-    React13.createElement(
+    React14.createElement(
       "div",
       { className: "oe-variable-combobox", ref: comboboxRef },
-      variableSelectOpen ? React13.createElement(
+      variableSelectOpen ? React14.createElement(
         "div",
         { className: "oe-variable-combobox-dropdown" },
-        React13.createElement("input", {
+        React14.createElement("input", {
           ref: searchInputRef,
           type: "text",
           className: "oe-field-input",
@@ -18175,11 +18353,11 @@ function VariableInserter({
             }
           }
         }),
-        filteredVariables.length > 0 && React13.createElement(
+        filteredVariables.length > 0 && React14.createElement(
           "div",
           { className: "oe-variable-combobox-list" },
           filteredVariables.map(
-            ([name, def]) => React13.createElement(
+            ([name, def]) => React14.createElement(
               "button",
               {
                 key: name,
@@ -18187,12 +18365,12 @@ function VariableInserter({
                 className: "oe-variable-combobox-item",
                 onClick: () => handleInsertVariable(name)
               },
-              React13.createElement(
+              React14.createElement(
                 "code",
                 { className: "oe-variable-combobox-key" },
                 `{{${name}}}`
               ),
-              React13.createElement(
+              React14.createElement(
                 "span",
                 { className: "oe-variable-combobox-fallback" },
                 def.fallback || "\u2014"
@@ -18200,15 +18378,15 @@ function VariableInserter({
             )
           )
         ),
-        variableSearch.trim() && !variables[variableSearch.trim()] && isValidVariableKey(variableSearch.trim()) || showCreateForm ? React13.createElement(
+        variableSearch.trim() && !variables[variableSearch.trim()] && isValidVariableKey(variableSearch.trim()) || showCreateForm ? React14.createElement(
           "div",
           { className: "oe-variable-combobox-create" },
-          React13.createElement(
+          React14.createElement(
             "div",
             { className: "oe-variable-combobox-create-header" },
             "Create new variable"
           ),
-          React13.createElement("input", {
+          React14.createElement("input", {
             type: "text",
             className: "oe-field-input",
             placeholder: "variableName",
@@ -18216,14 +18394,14 @@ function VariableInserter({
             onChange: (e) => setNewVarName(e.target.value),
             "data-invalid": newVarName.trim() && !isValidVariableKey(newVarName.trim()) ? "true" : void 0
           }),
-          React13.createElement("input", {
+          React14.createElement("input", {
             type: "text",
             className: "oe-field-input",
             placeholder: "Fallback text",
             value: newVarFallback,
             onChange: (e) => setNewVarFallback(e.target.value)
           }),
-          React13.createElement(
+          React14.createElement(
             "button",
             {
               type: "button",
@@ -18245,12 +18423,12 @@ function VariableInserter({
             },
             "Create & Insert"
           )
-        ) : filteredVariables.length === 0 && variableSearch.trim() && React13.createElement(
+        ) : filteredVariables.length === 0 && variableSearch.trim() && React14.createElement(
           "div",
           { className: "oe-variable-combobox-empty" },
           "No variables found. Type a valid name to create one."
         )
-      ) : React13.createElement(
+      ) : React14.createElement(
         "button",
         {
           type: "button",
@@ -18264,10 +18442,10 @@ function VariableInserter({
 }
 
 // src/components/properties-panel/properties-group.tsx
-import React15 from "react";
+import React16 from "react";
 
 // src/components/properties-panel/property-field.tsx
-import React14, { useCallback as useCallback9 } from "react";
+import React15, { useCallback as useCallback9 } from "react";
 function PropertyField({ schema, value, onChange }) {
   const handleChange = useCallback9(
     (e) => {
@@ -18284,15 +18462,15 @@ function PropertyField({ schema, value, onChange }) {
   const stringValue = value !== void 0 && value !== null ? String(value) : "";
   switch (schema.type) {
     case "textarea":
-      return React14.createElement(
+      return React15.createElement(
         "div",
         { className: "oe-field" },
-        React14.createElement(
+        React15.createElement(
           "label",
           { className: "oe-field-label" },
           schema.label
         ),
-        React14.createElement("textarea", {
+        React15.createElement("textarea", {
           className: "oe-field-textarea",
           value: stringValue,
           onChange: handleChange,
@@ -18300,24 +18478,24 @@ function PropertyField({ schema, value, onChange }) {
         })
       );
     case "select":
-      return React14.createElement(
+      return React15.createElement(
         "div",
         { className: "oe-field" },
-        React14.createElement(
+        React15.createElement(
           "label",
           { className: "oe-field-label" },
           schema.label
         ),
-        React14.createElement(
+        React15.createElement(
           "select",
           {
             className: "oe-field-select",
             value: stringValue,
             onChange: handleChange
           },
-          React14.createElement("option", { value: "" }, "\u2014"),
+          React15.createElement("option", { value: "" }, "\u2014"),
           ...(schema.options ?? []).map(
-            (opt) => React14.createElement(
+            (opt) => React15.createElement(
               "option",
               { key: opt.value, value: opt.value },
               opt.label
@@ -18326,24 +18504,24 @@ function PropertyField({ schema, value, onChange }) {
         )
       );
     case "color":
-      return React14.createElement(
+      return React15.createElement(
         "div",
         { className: "oe-field" },
-        React14.createElement(
+        React15.createElement(
           "label",
           { className: "oe-field-label" },
           schema.label
         ),
-        React14.createElement(
+        React15.createElement(
           "div",
           { className: "oe-field-color-wrapper" },
-          React14.createElement("input", {
+          React15.createElement("input", {
             type: "color",
             className: "oe-field-color-swatch",
             value: stringValue || "#000000",
             onChange: handleChange
           }),
-          React14.createElement("input", {
+          React15.createElement("input", {
             type: "text",
             className: "oe-field-input",
             value: stringValue,
@@ -18354,10 +18532,10 @@ function PropertyField({ schema, value, onChange }) {
         )
       );
     case "toggle":
-      return React14.createElement(
+      return React15.createElement(
         "div",
         { className: "oe-field" },
-        React14.createElement(
+        React15.createElement(
           "label",
           {
             className: "oe-field-label",
@@ -18368,7 +18546,7 @@ function PropertyField({ schema, value, onChange }) {
               cursor: "pointer"
             }
           },
-          React14.createElement("input", {
+          React15.createElement("input", {
             type: "checkbox",
             checked: !!value,
             onChange: handleChange
@@ -18377,15 +18555,15 @@ function PropertyField({ schema, value, onChange }) {
         )
       );
     case "number":
-      return React14.createElement(
+      return React15.createElement(
         "div",
         { className: "oe-field" },
-        React14.createElement(
+        React15.createElement(
           "label",
           { className: "oe-field-label" },
           schema.label
         ),
-        React14.createElement("input", {
+        React15.createElement("input", {
           type: "number",
           className: "oe-field-input",
           value: stringValue,
@@ -18397,15 +18575,15 @@ function PropertyField({ schema, value, onChange }) {
     case "text":
     case "spacing":
     default:
-      return React14.createElement(
+      return React15.createElement(
         "div",
         { className: "oe-field" },
-        React14.createElement(
+        React15.createElement(
           "label",
           { className: "oe-field-label" },
           schema.label
         ),
-        React14.createElement("input", {
+        React15.createElement("input", {
           type: schema.type === "url" ? "url" : "text",
           className: "oe-field-input",
           value: stringValue,
@@ -18423,16 +18601,16 @@ function PropertiesGroup({
   nodeProps,
   onChange
 }) {
-  return React15.createElement(
+  return React16.createElement(
     "div",
     { className: "oe-properties-group" },
-    React15.createElement(
+    React16.createElement(
       "div",
       { className: "oe-properties-group-title" },
       GROUP_LABELS[group] ?? group
     ),
     ...properties.map(
-      (prop) => React15.createElement(PropertyField, {
+      (prop) => React16.createElement(PropertyField, {
         key: prop.key,
         schema: prop,
         value: resolveValue(nodeProps, prop.key),
@@ -18462,20 +18640,10 @@ function PropertiesPanel({ className, registry }) {
   const handlePropertyChange = useCallback10(
     (key, value) => {
       if (!selectedNodeId) return;
-      if (key.includes(".")) {
-        const parts = key.split(".");
-        if (parts.length === 2) {
-          const [parent, child] = parts;
-          updateNode2(selectedNodeId, {
-            [parent]: {
-              ...resolveValue(selectedNode?.props ?? {}, parent) ?? {},
-              [child]: value === "" ? void 0 : value
-            }
-          });
-          return;
-        }
-      }
-      updateNode2(selectedNodeId, { [key]: value === "" ? void 0 : value });
+      updateNode2(
+        selectedNodeId,
+        buildNodePatchFromPropertyKey(selectedNode?.props ?? {}, key, value)
+      );
     },
     [selectedNodeId, selectedNode, updateNode2]
   );
@@ -18523,7 +18691,7 @@ function PropertiesPanel({ className, registry }) {
     [updateDocumentMeta]
   );
   if (!selectedNode || !definition) {
-    return React16.createElement(PropertiesPanelEmpty, {
+    return React17.createElement(PropertiesPanelEmpty, {
       className,
       meta: emailDocument.meta,
       onMetaChange: handleMetaChange
@@ -18532,14 +18700,14 @@ function PropertiesPanel({ className, registry }) {
   const canInsertVariable = selectedNode && CONTENT_NODE_TYPES.includes(
     selectedNode.type
   );
-  return React16.createElement(
+  return React17.createElement(
     "div",
     { className: `oe-properties ${className ?? ""}` },
-    React16.createElement(PropertiesPanelHeader, {
+    React17.createElement(PropertiesPanelHeader, {
       title: definition.label,
       onDelete: handleDelete
     }),
-    canInsertVariable && React16.createElement(VariableInserter, {
+    canInsertVariable && React17.createElement(VariableInserter, {
       selectedNodeId: selectedNodeId || void 0,
       contentKey: contentKey || void 0,
       currentContent: currentContent || void 0,
@@ -18547,7 +18715,7 @@ function PropertiesPanel({ className, registry }) {
       onCreateAndInsert: handleCreateAndInsert
     }),
     ...GROUP_ORDER.filter((g) => groups[g] && groups[g].length > 0).map(
-      (group) => React16.createElement(PropertiesGroup, {
+      (group) => React17.createElement(PropertiesGroup, {
         key: group,
         group,
         properties: groups[group],
@@ -18585,20 +18753,20 @@ function EmailEditor({
     availableModes,
     registry
   } = config;
-  return React17.createElement(
+  return React18.createElement(
     EditorProvider,
     { initialDocument, onChange },
-    React17.createElement(
+    React18.createElement(
       DragDropProvider,
       null,
-      React17.createElement(
+      React18.createElement(
         "div",
         {
           className: `open-email-editor ${className ?? ""}`,
           "data-theme": theme,
           style
         },
-        showToolbar && toolbar !== false && (toolbar ?? React17.createElement(EditorToolbar, {
+        showToolbar && toolbar !== false && (toolbar ?? React18.createElement(EditorToolbar, {
           modes: availableModes,
           actions: toolbarActions,
           variableData,
@@ -18608,12 +18776,12 @@ function EmailEditor({
           onExportHTML,
           onExportJSON
         })),
-        React17.createElement(
+        React18.createElement(
           "div",
           { className: "oe-editor-body" },
-          showSidebar && sidebar !== false && (sidebar ?? React17.createElement(EditorSidebar, { registry })),
-          canvas ?? React17.createElement(EditorCanvas, { variableData }),
-          showProperties && propertiesPanel !== false && (propertiesPanel ?? React17.createElement(PropertiesPanel, { registry }))
+          showSidebar && sidebar !== false && (sidebar ?? React18.createElement(EditorSidebar, { registry })),
+          canvas ?? React18.createElement(EditorCanvas, { variableData }),
+          showProperties && propertiesPanel !== false && (propertiesPanel ?? React18.createElement(PropertiesPanel, { registry }))
         )
       )
     )
@@ -18621,7 +18789,7 @@ function EmailEditor({
 }
 
 // src/components/variable-manager.tsx
-import React18, { useCallback as useCallback11, useState as useState8 } from "react";
+import React19, { useCallback as useCallback11, useState as useState9 } from "react";
 var VARIABLE_KEY_REGEX2 = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 function isValidVariableKey2(key) {
   return key.length > 0 && VARIABLE_KEY_REGEX2.test(key);
@@ -18629,10 +18797,10 @@ function isValidVariableKey2(key) {
 function VariableManager({ className }) {
   const { document: document2, updateVariables } = useEditor();
   const variables = document2.variables ?? {};
-  const [editingKey, setEditingKey] = useState8(null);
-  const [newKey, setNewKey] = useState8("");
-  const [newFallback, setNewFallback] = useState8("");
-  const [addMode, setAddMode] = useState8(false);
+  const [editingKey, setEditingKey] = useState9(null);
+  const [newKey, setNewKey] = useState9("");
+  const [newFallback, setNewFallback] = useState9("");
+  const [addMode, setAddMode] = useState9(false);
   const entries = Object.entries(variables);
   const handleSaveEdit = useCallback11(
     (key, fallback) => {
@@ -18671,14 +18839,14 @@ function VariableManager({ className }) {
     setNewKey("");
     setNewFallback("");
   }, []);
-  return React18.createElement(
+  return React19.createElement(
     "div",
     { className: `oe-variable-manager ${className ?? ""}` },
-    React18.createElement(
+    React19.createElement(
       "div",
       { className: "oe-variable-manager-header" },
-      React18.createElement("span", { className: "oe-properties-group-title" }, "Variables"),
-      React18.createElement(
+      React19.createElement("span", { className: "oe-properties-group-title" }, "Variables"),
+      React19.createElement(
         "button",
         {
           type: "button",
@@ -18686,13 +18854,13 @@ function VariableManager({ className }) {
           onClick: addMode ? cancelAdd : startAdd,
           title: addMode ? "Cancel" : "Add variable"
         },
-        React18.createElement(addMode ? Icons.close : Icons.plus, { size: 14 })
+        React19.createElement(addMode ? Icons.close : Icons.plus, { size: 14 })
       )
     ),
-    addMode && React18.createElement(
+    addMode && React19.createElement(
       "div",
       { className: "oe-variable-manager-add" },
-      React18.createElement("input", {
+      React19.createElement("input", {
         type: "text",
         className: "oe-field-input",
         placeholder: "variableName",
@@ -18700,14 +18868,14 @@ function VariableManager({ className }) {
         onChange: (e) => setNewKey(e.target.value),
         "data-invalid": newKey.trim() && !isValidVariableKey2(newKey.trim()) ? "true" : void 0
       }),
-      React18.createElement("input", {
+      React19.createElement("input", {
         type: "text",
         className: "oe-field-input",
         placeholder: "Fallback text",
         value: newFallback,
         onChange: (e) => setNewFallback(e.target.value)
       }),
-      React18.createElement(
+      React19.createElement(
         "button",
         {
           type: "button",
@@ -18718,38 +18886,38 @@ function VariableManager({ className }) {
         "Add"
       )
     ),
-    entries.length === 0 && !addMode ? React18.createElement(
+    entries.length === 0 && !addMode ? React19.createElement(
       "div",
       { className: "oe-variable-manager-empty" },
       "No variables. Use {{name}} in text and add variables here."
     ) : entries.map(
-      ([key, def]) => editingKey === key ? React18.createElement(VariableRowEdit, {
+      ([key, def]) => editingKey === key ? React19.createElement(VariableRowEdit, {
         key,
         name: key,
         fallback: def.fallback,
         onSave: (fallback) => handleSaveEdit(key, fallback),
         onDelete: () => handleDelete(key),
         onCancel: () => setEditingKey(null)
-      }) : React18.createElement(
+      }) : React19.createElement(
         "div",
         {
           key,
           className: "oe-variable-manager-row",
           onClick: () => setEditingKey(key)
         },
-        React18.createElement("code", { className: "oe-variable-manager-key" }, `{{${key}}}`),
-        React18.createElement("span", { className: "oe-variable-manager-fallback" }, def.fallback || "\u2014")
+        React19.createElement("code", { className: "oe-variable-manager-key" }, `{{${key}}}`),
+        React19.createElement("span", { className: "oe-variable-manager-fallback" }, def.fallback || "\u2014")
       )
     )
   );
 }
 function VariableRowEdit({ name, fallback, onSave, onDelete, onCancel }) {
-  const [value, setValue] = useState8(fallback);
-  return React18.createElement(
+  const [value, setValue] = useState9(fallback);
+  return React19.createElement(
     "div",
     { className: "oe-variable-manager-row oe-variable-manager-row-edit" },
-    React18.createElement("code", { className: "oe-variable-manager-key" }, `{{${name}}}`),
-    React18.createElement("input", {
+    React19.createElement("code", { className: "oe-variable-manager-key" }, `{{${name}}}`),
+    React19.createElement("input", {
       type: "text",
       className: "oe-field-input",
       value,
@@ -18757,20 +18925,20 @@ function VariableRowEdit({ name, fallback, onSave, onDelete, onCancel }) {
       placeholder: "Fallback",
       onClick: (e) => e.stopPropagation()
     }),
-    React18.createElement(
+    React19.createElement(
       "div",
       { className: "oe-variable-manager-actions" },
-      React18.createElement(
+      React19.createElement(
         "button",
         { type: "button", className: "oe-btn-icon", onClick: () => onSave(value), title: "Save" },
-        React18.createElement(Icons.check, { size: 14 })
+        React19.createElement(Icons.check, { size: 14 })
       ),
-      React18.createElement(
+      React19.createElement(
         "button",
         { type: "button", className: "oe-btn-icon", onClick: onCancel, title: "Cancel" },
-        React18.createElement(Icons.close, { size: 14 })
+        React19.createElement(Icons.close, { size: 14 })
       ),
-      React18.createElement(
+      React19.createElement(
         "button",
         {
           type: "button",
@@ -18782,7 +18950,7 @@ function VariableRowEdit({ name, fallback, onSave, onDelete, onCancel }) {
           title: "Delete",
           style: { color: "var(--oe-danger)" }
         },
-        React18.createElement(Icons.trash, { size: 14 })
+        React19.createElement(Icons.trash, { size: 14 })
       )
     )
   );

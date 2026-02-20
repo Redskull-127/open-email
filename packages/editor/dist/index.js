@@ -1537,7 +1537,7 @@ __export(index_exports, {
 module.exports = __toCommonJS(index_exports);
 
 // src/components/email-editor.tsx
-var import_react17 = __toESM(require("react"));
+var import_react18 = __toESM(require("react"));
 
 // src/engine/editor-store.ts
 var import_react = __toESM(require("react"));
@@ -17088,25 +17088,156 @@ function EditorSidebar({
 }
 
 // src/components/editor-canvas.tsx
+var import_react11 = __toESM(require("react"));
+
+// src/utils/node-props.ts
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function normalizeNodePropValue(value) {
+  return value === "" ? void 0 : value;
+}
+function setNestedPath(source, path, value) {
+  if (path.length === 0) return source;
+  const [head, ...tail] = path;
+  if (tail.length === 0) {
+    return { ...source, [head]: value };
+  }
+  const current = source[head];
+  const nextSource = isRecord(current) ? current : {};
+  return {
+    ...source,
+    [head]: setNestedPath(nextSource, tail, value)
+  };
+}
+function buildNodePatchFromPropertyKey(nodeProps, key, value) {
+  const normalizedValue = normalizeNodePropValue(value);
+  if (!key.includes(".")) {
+    return { [key]: normalizedValue };
+  }
+  const [root, ...path] = key.split(".");
+  const existingRoot = nodeProps[root];
+  const rootRecord = isRecord(existingRoot) ? existingRoot : {};
+  return {
+    [root]: setNestedPath(rootRecord, path, normalizedValue)
+  };
+}
+
+// src/components/inline-editing/inline-text-editor.tsx
 var import_react10 = __toESM(require("react"));
+function InlineTextEditor({
+  isEditing,
+  value,
+  multiline = false,
+  placeholder,
+  onCommit,
+  onCancel,
+  renderDisplay
+}) {
+  const [draft, setDraft] = (0, import_react10.useState)(value);
+  const inputRef = (0, import_react10.useRef)(null);
+  (0, import_react10.useEffect)(() => {
+    setDraft(value);
+  }, [value, isEditing]);
+  (0, import_react10.useEffect)(() => {
+    if (!isEditing || !inputRef.current) return;
+    inputRef.current.focus();
+    const length = inputRef.current.value.length;
+    inputRef.current.setSelectionRange(length, length);
+  }, [isEditing]);
+  if (!isEditing) {
+    return renderDisplay(value);
+  }
+  const handleCommit = () => {
+    onCommit(draft);
+  };
+  const handleCancel = () => {
+    setDraft(value);
+    onCancel();
+  };
+  const handleKeyDown = (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      handleCancel();
+      return;
+    }
+    if (e.key === "Enter" && (!multiline || e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleCommit();
+    }
+  };
+  if (multiline) {
+    return import_react10.default.createElement("textarea", {
+      ref: inputRef,
+      className: "oe-inline-editor-input oe-inline-editor-textarea",
+      value: draft,
+      placeholder,
+      onChange: (e) => setDraft(e.target.value),
+      onBlur: handleCommit,
+      onKeyDown: handleKeyDown,
+      onClick: (e) => e.stopPropagation(),
+      onPointerDown: (e) => e.stopPropagation()
+    });
+  }
+  return import_react10.default.createElement("input", {
+    ref: inputRef,
+    type: "text",
+    className: "oe-inline-editor-input",
+    value: draft,
+    placeholder,
+    onChange: (e) => setDraft(e.target.value),
+    onBlur: handleCommit,
+    onKeyDown: handleKeyDown,
+    onClick: (e) => e.stopPropagation(),
+    onPointerDown: (e) => e.stopPropagation()
+  });
+}
+
+// src/components/inline-editing/inline-editing-utils.ts
+var INLINE_EDITABLE_NODE_TYPES = ["text", "heading", "markdown"];
+var INLINE_EDITABLE_NODE_TYPE_SET = new Set(
+  INLINE_EDITABLE_NODE_TYPES
+);
+function isInlineEditableNodeType(type) {
+  return INLINE_EDITABLE_NODE_TYPE_SET.has(type);
+}
+function getInlineContentKey(type) {
+  if (!isInlineEditableNodeType(type)) return null;
+  return "content";
+}
+function isInlineMultiline(type) {
+  return type !== "heading";
+}
+
+// src/components/editor-canvas.tsx
 function DropIndicator({ parentId, index }) {
   const { setNodeRef, isOver } = useDropZone(parentId, index);
-  return import_react10.default.createElement("div", {
+  return import_react11.default.createElement("div", {
     ref: setNodeRef,
     className: `oe-drop-indicator ${isOver ? "oe-drop-indicator-active" : ""}`
   });
 }
 function EmptyContainerDropZone({ containerId, label }) {
   const { setNodeRef, isOver } = useContainerDropZone(containerId);
-  return import_react10.default.createElement("div", {
+  return import_react11.default.createElement("div", {
     ref: setNodeRef,
     className: `oe-drop-zone ${isOver ? "oe-drop-zone-active" : ""}`
   }, label ?? "+ Drop component here");
 }
-function CanvasNode({ node, parentId, index }) {
-  const { selectedNodeId, selectNode } = useEditor();
-  const { activeData } = useDragDrop();
+function CanvasNode({
+  node,
+  parentId,
+  index,
+  editingNodeId,
+  setEditingNodeId
+}) {
+  const { selectedNodeId, selectNode, updateNode: updateNode2 } = useEditor();
   const isSelected = selectedNodeId === node.id;
+  const isInlineEditable = isInlineEditableNodeType(node.type);
+  const inlineContentKey = getInlineContentKey(node.type);
+  const isEditingInline = isInlineEditable && editingNodeId === node.id;
   const def = defaultRegistry.get(node.type);
   const label = def?.label ?? node.type;
   const hasChildren = node.children && node.children.length > 0;
@@ -17121,24 +17252,35 @@ function CanvasNode({ node, parentId, index }) {
     setNodeRef: setDropRef,
     isOver
   } = useNodeDroppable(node.id, parentId, index, acceptsChildren);
-  const mergedRef = (0, import_react10.useCallback)(
+  const mergedRef = (0, import_react11.useCallback)(
     (el) => {
       setDragRef(el);
       setDropRef(el);
     },
     [setDragRef, setDropRef]
   );
+  const handleInlineCommit = (0, import_react11.useCallback)((value) => {
+    if (!inlineContentKey) return;
+    updateNode2(
+      node.id,
+      buildNodePatchFromPropertyKey(node.props, inlineContentKey, value)
+    );
+    setEditingNodeId(null);
+  }, [inlineContentKey, updateNode2, node.id, node.props, setEditingNodeId]);
+  const handleInlineCancel = (0, import_react11.useCallback)(() => {
+    setEditingNodeId(null);
+  }, [setEditingNodeId]);
   const renderChildren = () => {
     if (!acceptsChildren) return null;
     if (!hasChildren) {
-      return import_react10.default.createElement(EmptyContainerDropZone, {
+      return import_react11.default.createElement(EmptyContainerDropZone, {
         containerId: node.id,
         label: getEmptyLabel(node.type)
       });
     }
     const children = node.children;
     const elements = [
-      import_react10.default.createElement(DropIndicator, {
+      import_react11.default.createElement(DropIndicator, {
         key: `drop-${node.id}-0`,
         parentId: node.id,
         index: 0
@@ -17146,13 +17288,15 @@ function CanvasNode({ node, parentId, index }) {
     ];
     for (let i = 0; i < children.length; i++) {
       elements.push(
-        import_react10.default.createElement(CanvasNode, {
+        import_react11.default.createElement(CanvasNode, {
           key: children[i].id,
           node: children[i],
           parentId: node.id,
-          index: i
+          index: i,
+          editingNodeId,
+          setEditingNodeId
         }),
-        import_react10.default.createElement(DropIndicator, {
+        import_react11.default.createElement(DropIndicator, {
           key: `drop-${node.id}-${i + 1}`,
           parentId: node.id,
           index: i + 1
@@ -17166,7 +17310,7 @@ function CanvasNode({ node, parentId, index }) {
     const nodeClassName = node.props.className || void 0;
     switch (node.type) {
       case "container":
-        return import_react10.default.createElement(
+        return import_react11.default.createElement(
           "div",
           {
             className: nodeClassName,
@@ -17180,13 +17324,13 @@ function CanvasNode({ node, parentId, index }) {
           renderChildren()
         );
       case "section":
-        return import_react10.default.createElement(
+        return import_react11.default.createElement(
           "div",
           { className: nodeClassName, style: { padding: "10px 0", ...style } },
           renderChildren()
         );
       case "row":
-        return import_react10.default.createElement(
+        return import_react11.default.createElement(
           "div",
           {
             className: nodeClassName,
@@ -17199,7 +17343,7 @@ function CanvasNode({ node, parentId, index }) {
         let justifyContent = "flex-start";
         if (verticalAlign === "middle") justifyContent = "center";
         if (verticalAlign === "bottom") justifyContent = "flex-end";
-        return import_react10.default.createElement(
+        return import_react11.default.createElement(
           "div",
           {
             className: nodeClassName,
@@ -17216,21 +17360,29 @@ function CanvasNode({ node, parentId, index }) {
         );
       }
       case "text":
-        return import_react10.default.createElement(
-          "p",
-          {
-            className: nodeClassName,
-            style: {
-              margin: "0",
-              padding: "4px 0",
-              fontSize: "14px",
-              lineHeight: "1.6",
-              color: "#374151",
-              ...style
-            }
-          },
-          node.props.content ?? ""
-        );
+        return import_react11.default.createElement(InlineTextEditor, {
+          isEditing: isEditingInline,
+          multiline: isInlineMultiline(node.type),
+          value: node.props.content ?? "",
+          placeholder: "Type your text here...",
+          onCommit: handleInlineCommit,
+          onCancel: handleInlineCancel,
+          renderDisplay: (value) => import_react11.default.createElement(
+            "p",
+            {
+              className: nodeClassName,
+              style: {
+                margin: "0",
+                padding: "4px 0",
+                fontSize: "14px",
+                lineHeight: "1.6",
+                color: "#374151",
+                ...style
+              }
+            },
+            value
+          )
+        });
       case "heading": {
         const Tag = node.props.as ?? "h2";
         const sizeMap = {
@@ -17241,27 +17393,35 @@ function CanvasNode({ node, parentId, index }) {
           h5: "16px",
           h6: "14px"
         };
-        return import_react10.default.createElement(
-          Tag,
-          {
-            className: nodeClassName,
-            style: {
-              margin: "0",
-              padding: "4px 0",
-              fontSize: sizeMap[Tag] ?? "24px",
-              fontWeight: "bold",
-              color: "#111827",
-              ...style
-            }
-          },
-          node.props.content ?? ""
-        );
+        return import_react11.default.createElement(InlineTextEditor, {
+          isEditing: isEditingInline,
+          multiline: isInlineMultiline(node.type),
+          value: node.props.content ?? "",
+          placeholder: "Heading",
+          onCommit: handleInlineCommit,
+          onCancel: handleInlineCancel,
+          renderDisplay: (value) => import_react11.default.createElement(
+            Tag,
+            {
+              className: nodeClassName,
+              style: {
+                margin: "0",
+                padding: "4px 0",
+                fontSize: sizeMap[Tag] ?? "24px",
+                fontWeight: "bold",
+                color: "#111827",
+                ...style
+              }
+            },
+            value
+          )
+        });
       }
       case "button":
-        return import_react10.default.createElement(
+        return import_react11.default.createElement(
           "div",
           { style: { padding: "4px 0" } },
-          import_react10.default.createElement(
+          import_react11.default.createElement(
             "a",
             {
               className: nodeClassName,
@@ -17284,7 +17444,7 @@ function CanvasNode({ node, parentId, index }) {
           )
         );
       case "image":
-        return import_react10.default.createElement("img", {
+        return import_react11.default.createElement("img", {
           className: nodeClassName,
           src: node.props.src ?? "https://placehold.co/600x200/e2e8f0/64748b?text=Image",
           alt: node.props.alt ?? "",
@@ -17298,7 +17458,7 @@ function CanvasNode({ node, parentId, index }) {
           }
         });
       case "link":
-        return import_react10.default.createElement(
+        return import_react11.default.createElement(
           "a",
           {
             className: nodeClassName,
@@ -17314,7 +17474,7 @@ function CanvasNode({ node, parentId, index }) {
           node.props.content ?? "Link"
         );
       case "hr":
-        return import_react10.default.createElement("hr", {
+        return import_react11.default.createElement("hr", {
           className: nodeClassName,
           style: {
             border: "none",
@@ -17324,13 +17484,13 @@ function CanvasNode({ node, parentId, index }) {
           }
         });
       case "spacer":
-        return import_react10.default.createElement("div", {
+        return import_react11.default.createElement("div", {
           className: nodeClassName,
           style: { height: node.props.height ?? "20px", ...style }
         });
       case "code-inline": {
         const code = node.props.code ?? "";
-        return import_react10.default.createElement(
+        return import_react11.default.createElement(
           "code",
           {
             className: nodeClassName,
@@ -17350,7 +17510,7 @@ function CanvasNode({ node, parentId, index }) {
       }
       case "code-block": {
         const code = node.props.code ?? "";
-        return import_react10.default.createElement(
+        return import_react11.default.createElement(
           "pre",
           {
             className: nodeClassName,
@@ -17368,7 +17528,7 @@ function CanvasNode({ node, parentId, index }) {
               ...style
             }
           },
-          import_react10.default.createElement("code", { style: { display: "block", fontFamily: "inherit" } }, code)
+          import_react11.default.createElement("code", { style: { display: "block", fontFamily: "inherit" } }, code)
         );
       }
       case "markdown": {
@@ -17384,12 +17544,12 @@ function CanvasNode({ node, parentId, index }) {
           for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             if (!line.trim() && i < lines.length - 1) {
-              elements.push(import_react10.default.createElement("br", { key: `br-${i}` }));
+              elements.push(import_react11.default.createElement("br", { key: `br-${i}` }));
               continue;
             }
             if (line.startsWith("# ")) {
               elements.push(
-                import_react10.default.createElement(
+                import_react11.default.createElement(
                   "h1",
                   {
                     key: `h1-${i}`,
@@ -17405,7 +17565,7 @@ function CanvasNode({ node, parentId, index }) {
               );
             } else if (line.startsWith("## ")) {
               elements.push(
-                import_react10.default.createElement(
+                import_react11.default.createElement(
                   "h2",
                   {
                     key: `h2-${i}`,
@@ -17421,7 +17581,7 @@ function CanvasNode({ node, parentId, index }) {
               );
             } else if (line.startsWith("### ")) {
               elements.push(
-                import_react10.default.createElement(
+                import_react11.default.createElement(
                   "h3",
                   {
                     key: `h3-${i}`,
@@ -17441,7 +17601,7 @@ function CanvasNode({ node, parentId, index }) {
               processedLine = processedLine.replace(/\*(.+?)\*/g, "<em>$1</em>");
               processedLine = processedLine.replace(/`(.+?)`/g, "<code style='background: #f3f4f6; padding: 2px 4px; border-radius: 3px; font-family: monospace;'>$1</code>");
               elements.push(
-                import_react10.default.createElement(
+                import_react11.default.createElement(
                   "p",
                   {
                     key: `p-${i}`,
@@ -17457,32 +17617,40 @@ function CanvasNode({ node, parentId, index }) {
           }
           return elements.length > 0 ? elements : null;
         };
-        return import_react10.default.createElement(
-          "div",
-          {
-            className: nodeClassName,
-            style: {
-              fontSize,
-              fontFamily,
-              lineHeight,
-              color: textColor,
-              padding: "8px 0",
-              ...style
-            }
-          },
-          renderMarkdown(content)
-        );
+        return import_react11.default.createElement(InlineTextEditor, {
+          isEditing: isEditingInline,
+          multiline: isInlineMultiline(node.type),
+          value: content,
+          placeholder: "Type markdown...",
+          onCommit: handleInlineCommit,
+          onCancel: handleInlineCancel,
+          renderDisplay: (value) => import_react11.default.createElement(
+            "div",
+            {
+              className: nodeClassName,
+              style: {
+                fontSize,
+                fontFamily,
+                lineHeight,
+                color: textColor,
+                padding: "8px 0",
+                ...style
+              }
+            },
+            renderMarkdown(value)
+          )
+        });
       }
       case "html": {
         const html = node.props.content ?? "";
-        return import_react10.default.createElement("div", {
+        return import_react11.default.createElement("div", {
           className: nodeClassName,
           style: { padding: "4px 0", ...style },
           dangerouslySetInnerHTML: { __html: html }
         });
       }
       case "tailwind":
-        return import_react10.default.createElement(
+        return import_react11.default.createElement(
           "div",
           {
             className: nodeClassName,
@@ -17497,7 +17665,7 @@ function CanvasNode({ node, parentId, index }) {
         );
       case "font":
       case "preview":
-        return import_react10.default.createElement(
+        return import_react11.default.createElement(
           "div",
           {
             style: {
@@ -17512,7 +17680,7 @@ function CanvasNode({ node, parentId, index }) {
           node.type === "font" ? `Font: ${node.props.fontFamily ?? "Unnamed"}` : `Preview: ${node.props.content ?? "\u2026"}`
         );
       default:
-        return import_react10.default.createElement(
+        return import_react11.default.createElement(
           "div",
           { style: { padding: "8px", color: "#94a3b8", fontSize: "12px" } },
           `[${node.type}]`
@@ -17520,20 +17688,26 @@ function CanvasNode({ node, parentId, index }) {
     }
   };
   const isDropTarget = isOver && !isDragging;
-  return import_react10.default.createElement(
+  const dragProps = isEditingInline ? {} : { ...listeners, ...attributes };
+  const handleNodeClick = (e) => {
+    e.stopPropagation();
+    selectNode(node.id);
+    if (isInlineEditable) {
+      setEditingNodeId(node.id);
+    } else {
+      setEditingNodeId(null);
+    }
+  };
+  return import_react11.default.createElement(
     "div",
     {
       ref: mergedRef,
-      className: `oe-canvas-node ${isDragging ? "oe-dragging" : ""} ${isDropTarget ? "oe-drop-target" : ""}`,
+      className: `oe-canvas-node ${isDragging ? "oe-dragging" : ""} ${isDropTarget ? "oe-drop-target" : ""} ${isEditingInline ? "oe-inline-editing" : ""}`,
       "data-selected": isSelected ? "true" : "false",
       "data-label": label,
       "data-node-id": node.id,
-      onClick: (e) => {
-        e.stopPropagation();
-        selectNode(node.id);
-      },
-      ...listeners,
-      ...attributes
+      onClick: handleNodeClick,
+      ...dragProps
     },
     renderContent()
   );
@@ -17556,14 +17730,15 @@ function getEmptyLabel(type) {
 }
 function VisualCanvas() {
   const { document: document2, selectNode } = useEditor();
+  const [editingNodeId, setEditingNodeId] = (0, import_react11.useState)(null);
   const tailwindEnabled = document2.meta.tailwind?.enabled ?? false;
   const tailwindConfig = document2.meta.tailwind?.config;
-  (0, import_react10.useEffect)(() => {
+  (0, import_react11.useEffect)(() => {
     if (tailwindEnabled) {
       window.tailwind?.scan?.();
     }
   }, [document2.body, tailwindEnabled]);
-  (0, import_react10.useEffect)(() => {
+  (0, import_react11.useEffect)(() => {
     const SCRIPT_ID = "oe-tailwind-cdn";
     if (!tailwindEnabled) {
       window.document.getElementById(SCRIPT_ID)?.remove();
@@ -17602,32 +17777,35 @@ function VisualCanvas() {
       }
     }
   }, [tailwindEnabled, tailwindConfig]);
-  const handleCanvasClick = (0, import_react10.useCallback)((e) => {
+  const handleCanvasClick = (0, import_react11.useCallback)((e) => {
     if (e.target.closest("a")) e.preventDefault();
+    setEditingNodeId(null);
     selectNode(null);
   }, [selectNode]);
-  return import_react10.default.createElement(
+  return import_react11.default.createElement(
     "div",
     { className: "oe-canvas", onClick: handleCanvasClick },
-    import_react10.default.createElement(
+    import_react11.default.createElement(
       "div",
       { className: "oe-canvas-inner" },
-      import_react10.default.createElement(CanvasNode, {
+      import_react11.default.createElement(CanvasNode, {
         node: document2.body,
         parentId: "__root__",
-        index: 0
+        index: 0,
+        editingNodeId,
+        setEditingNodeId
       })
     )
   );
 }
 function CodeCanvas() {
   const { document: document2, setDocument } = useEditor();
-  const [code, setCode] = (0, import_react10.useState)(() => exportToJSON(document2));
-  const [error, setError] = (0, import_react10.useState)(null);
-  (0, import_react10.useEffect)(() => {
+  const [code, setCode] = (0, import_react11.useState)(() => exportToJSON(document2));
+  const [error, setError] = (0, import_react11.useState)(null);
+  (0, import_react11.useEffect)(() => {
     setCode(exportToJSON(document2));
   }, [document2]);
-  const handleChange = (0, import_react10.useCallback)((e) => {
+  const handleChange = (0, import_react11.useCallback)((e) => {
     const newCode = e.target.value;
     setCode(newCode);
     try {
@@ -17638,10 +17816,10 @@ function CodeCanvas() {
       setError(err.message);
     }
   }, [setDocument]);
-  return import_react10.default.createElement(
+  return import_react11.default.createElement(
     "div",
     { className: "oe-code-editor" },
-    error && import_react10.default.createElement(
+    error && import_react11.default.createElement(
       "div",
       {
         style: {
@@ -17655,7 +17833,7 @@ function CodeCanvas() {
       "\u26A0 ",
       error
     ),
-    import_react10.default.createElement("textarea", {
+    import_react11.default.createElement("textarea", {
       className: "oe-code-textarea",
       value: code,
       onChange: handleChange,
@@ -17665,9 +17843,9 @@ function CodeCanvas() {
 }
 function PreviewCanvas({ variableData }) {
   const { document: document2 } = useEditor();
-  const [html, setHtml] = (0, import_react10.useState)("");
-  const iframeRef = (0, import_react10.useRef)(null);
-  (0, import_react10.useEffect)(() => {
+  const [html, setHtml] = (0, import_react11.useState)("");
+  const iframeRef = (0, import_react11.useRef)(null);
+  (0, import_react11.useEffect)(() => {
     let cancelled = false;
     renderToHTML(document2, variableData).then((result) => {
       if (!cancelled) setHtml(result);
@@ -17676,7 +17854,7 @@ function PreviewCanvas({ variableData }) {
       cancelled = true;
     };
   }, [document2, variableData]);
-  (0, import_react10.useEffect)(() => {
+  (0, import_react11.useEffect)(() => {
     if (iframeRef.current && html) {
       const doc = iframeRef.current.contentDocument;
       if (doc) {
@@ -17686,10 +17864,10 @@ function PreviewCanvas({ variableData }) {
       }
     }
   }, [html]);
-  return import_react10.default.createElement(
+  return import_react11.default.createElement(
     "div",
     { className: "oe-preview" },
-    import_react10.default.createElement("iframe", {
+    import_react11.default.createElement("iframe", {
       ref: iframeRef,
       className: "oe-preview-iframe",
       title: "Email Preview",
@@ -17699,23 +17877,23 @@ function PreviewCanvas({ variableData }) {
 }
 function EditorCanvas({ className, variableData }) {
   const { mode } = useEditor();
-  const content = (0, import_react10.useMemo)(() => {
+  const content = (0, import_react11.useMemo)(() => {
     switch (mode) {
       case "visual":
-        return import_react10.default.createElement(VisualCanvas, null);
+        return import_react11.default.createElement(VisualCanvas, null);
       case "code":
-        return import_react10.default.createElement(CodeCanvas, null);
+        return import_react11.default.createElement(CodeCanvas, null);
       case "preview":
-        return import_react10.default.createElement(PreviewCanvas, { variableData });
+        return import_react11.default.createElement(PreviewCanvas, { variableData });
       default:
-        return import_react10.default.createElement(VisualCanvas, null);
+        return import_react11.default.createElement(VisualCanvas, null);
     }
   }, [mode, variableData]);
   return content;
 }
 
 // src/components/properties-panel/properties-panel.tsx
-var import_react16 = __toESM(require("react"));
+var import_react17 = __toESM(require("react"));
 
 // src/utils/dom-helpers.ts
 function insertVariableIntoContent(existing, variableName) {
@@ -17725,7 +17903,7 @@ function insertVariableIntoContent(existing, variableName) {
 }
 
 // src/components/properties-panel/properties-panel-empty.tsx
-var import_react11 = __toESM(require("react"));
+var import_react12 = __toESM(require("react"));
 var FORMAT_OPTIONS = [
   { label: "WOFF2", value: "woff2" },
   { label: "WOFF", value: "woff" },
@@ -17744,26 +17922,26 @@ var WEIGHT_OPTIONS = [
   { label: "900 \u2014 Black", value: "900" }
 ];
 function FontCard({ font, index, expanded, onToggle, onChange, onRemove }) {
-  return import_react11.default.createElement(
+  return import_react12.default.createElement(
     "div",
     { className: "oe-font-card" },
-    import_react11.default.createElement(
+    import_react12.default.createElement(
       "div",
       { className: "oe-font-card-header", onClick: onToggle },
-      import_react11.default.createElement(
+      import_react12.default.createElement(
         "div",
         { className: "oe-font-card-name" },
-        font.fontFamily || import_react11.default.createElement("span", { className: "oe-font-card-placeholder" }, "Unnamed font")
+        font.fontFamily || import_react12.default.createElement("span", { className: "oe-font-card-placeholder" }, "Unnamed font")
       ),
-      import_react11.default.createElement(
+      import_react12.default.createElement(
         "div",
         { className: "oe-font-card-actions" },
-        import_react11.default.createElement(
+        import_react12.default.createElement(
           "span",
           { className: `oe-font-card-chevron ${expanded ? "oe-font-card-chevron-open" : ""}` },
           "\u203A"
         ),
-        import_react11.default.createElement(
+        import_react12.default.createElement(
           "button",
           {
             type: "button",
@@ -17778,14 +17956,14 @@ function FontCard({ font, index, expanded, onToggle, onChange, onRemove }) {
         )
       )
     ),
-    expanded && import_react11.default.createElement(
+    expanded && import_react12.default.createElement(
       "div",
       { className: "oe-font-card-body" },
-      import_react11.default.createElement(
+      import_react12.default.createElement(
         "div",
         { className: "oe-field" },
-        import_react11.default.createElement("label", { className: "oe-field-label" }, "Font Family"),
-        import_react11.default.createElement("input", {
+        import_react12.default.createElement("label", { className: "oe-field-label" }, "Font Family"),
+        import_react12.default.createElement("input", {
           type: "text",
           className: "oe-field-input",
           placeholder: "e.g. Roboto",
@@ -17793,11 +17971,11 @@ function FontCard({ font, index, expanded, onToggle, onChange, onRemove }) {
           onChange: (e) => onChange(index, { fontFamily: e.target.value })
         })
       ),
-      import_react11.default.createElement(
+      import_react12.default.createElement(
         "div",
         { className: "oe-field" },
-        import_react11.default.createElement("label", { className: "oe-field-label" }, "Fallback Font"),
-        import_react11.default.createElement("input", {
+        import_react12.default.createElement("label", { className: "oe-field-label" }, "Fallback Font"),
+        import_react12.default.createElement("input", {
           type: "text",
           className: "oe-field-input",
           placeholder: "e.g. Arial, sans-serif",
@@ -17805,11 +17983,11 @@ function FontCard({ font, index, expanded, onToggle, onChange, onRemove }) {
           onChange: (e) => onChange(index, { fallbackFontFamily: e.target.value })
         })
       ),
-      import_react11.default.createElement(
+      import_react12.default.createElement(
         "div",
         { className: "oe-field" },
-        import_react11.default.createElement("label", { className: "oe-field-label" }, "Web Font URL"),
-        import_react11.default.createElement("input", {
+        import_react12.default.createElement("label", { className: "oe-field-label" }, "Web Font URL"),
+        import_react12.default.createElement("input", {
           type: "url",
           className: "oe-field-input",
           placeholder: "https://fonts.gstatic.com/\u2026",
@@ -17817,14 +17995,14 @@ function FontCard({ font, index, expanded, onToggle, onChange, onRemove }) {
           onChange: (e) => onChange(index, { webFontUrl: e.target.value })
         })
       ),
-      import_react11.default.createElement(
+      import_react12.default.createElement(
         "div",
         { className: "oe-field-row" },
-        import_react11.default.createElement(
+        import_react12.default.createElement(
           "div",
           { className: "oe-field" },
-          import_react11.default.createElement("label", { className: "oe-field-label" }, "Format"),
-          import_react11.default.createElement(
+          import_react12.default.createElement("label", { className: "oe-field-label" }, "Format"),
+          import_react12.default.createElement(
             "select",
             {
               className: "oe-field-input oe-field-select",
@@ -17832,15 +18010,15 @@ function FontCard({ font, index, expanded, onToggle, onChange, onRemove }) {
               onChange: (e) => onChange(index, { webFontFormat: e.target.value })
             },
             FORMAT_OPTIONS.map(
-              (o) => import_react11.default.createElement("option", { key: o.value, value: o.value }, o.label)
+              (o) => import_react12.default.createElement("option", { key: o.value, value: o.value }, o.label)
             )
           )
         ),
-        import_react11.default.createElement(
+        import_react12.default.createElement(
           "div",
           { className: "oe-field" },
-          import_react11.default.createElement("label", { className: "oe-field-label" }, "Weight"),
-          import_react11.default.createElement(
+          import_react12.default.createElement("label", { className: "oe-field-label" }, "Weight"),
+          import_react12.default.createElement(
             "select",
             {
               className: "oe-field-input oe-field-select",
@@ -17848,63 +18026,63 @@ function FontCard({ font, index, expanded, onToggle, onChange, onRemove }) {
               onChange: (e) => onChange(index, { fontWeight: e.target.value })
             },
             WEIGHT_OPTIONS.map(
-              (o) => import_react11.default.createElement("option", { key: o.value, value: o.value }, o.label)
+              (o) => import_react12.default.createElement("option", { key: o.value, value: o.value }, o.label)
             )
           )
         )
       ),
-      import_react11.default.createElement(
+      import_react12.default.createElement(
         "div",
         { className: "oe-field" },
-        import_react11.default.createElement("label", { className: "oe-field-label" }, "Style"),
-        import_react11.default.createElement(
+        import_react12.default.createElement("label", { className: "oe-field-label" }, "Style"),
+        import_react12.default.createElement(
           "select",
           {
             className: "oe-field-input oe-field-select",
             value: font.fontStyle ?? "normal",
             onChange: (e) => onChange(index, { fontStyle: e.target.value })
           },
-          import_react11.default.createElement("option", { value: "normal" }, "Normal"),
-          import_react11.default.createElement("option", { value: "italic" }, "Italic"),
-          import_react11.default.createElement("option", { value: "oblique" }, "Oblique")
+          import_react12.default.createElement("option", { value: "normal" }, "Normal"),
+          import_react12.default.createElement("option", { value: "italic" }, "Italic"),
+          import_react12.default.createElement("option", { value: "oblique" }, "Oblique")
         )
       )
     )
   );
 }
 function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
-  const [expandedFonts, setExpandedFonts] = (0, import_react11.useState)(/* @__PURE__ */ new Set());
-  const handleField = (0, import_react11.useCallback)(
+  const [expandedFonts, setExpandedFonts] = (0, import_react12.useState)(/* @__PURE__ */ new Set());
+  const handleField = (0, import_react12.useCallback)(
     (key) => (e) => {
       onMetaChange?.({ [key]: e.target.value });
     },
     [onMetaChange]
   );
-  const handleTailwindToggle = (0, import_react11.useCallback)(
+  const handleTailwindToggle = (0, import_react12.useCallback)(
     (e) => {
       onMetaChange?.({ tailwind: { ...meta?.tailwind ?? {}, enabled: e.target.checked } });
     },
     [onMetaChange, meta?.tailwind]
   );
-  const handleTailwindConfig = (0, import_react11.useCallback)(
+  const handleTailwindConfig = (0, import_react12.useCallback)(
     (e) => {
       onMetaChange?.({ tailwind: { enabled: meta?.tailwind?.enabled ?? true, config: e.target.value } });
     },
     [onMetaChange, meta?.tailwind]
   );
-  const handleAddFont = (0, import_react11.useCallback)(() => {
+  const handleAddFont = (0, import_react12.useCallback)(() => {
     const fonts2 = [...meta?.fonts ?? [], { fontFamily: "", fallbackFontFamily: "sans-serif", webFontFormat: "woff2", fontWeight: "400", fontStyle: "normal" }];
     onMetaChange?.({ fonts: fonts2 });
     setExpandedFonts((prev) => /* @__PURE__ */ new Set([...prev, fonts2.length - 1]));
   }, [meta?.fonts, onMetaChange]);
-  const handleFontChange = (0, import_react11.useCallback)(
+  const handleFontChange = (0, import_react12.useCallback)(
     (index, update) => {
       const fonts2 = (meta?.fonts ?? []).map((f, i) => i === index ? { ...f, ...update } : f);
       onMetaChange?.({ fonts: fonts2 });
     },
     [meta?.fonts, onMetaChange]
   );
-  const handleFontRemove = (0, import_react11.useCallback)(
+  const handleFontRemove = (0, import_react12.useCallback)(
     (index) => {
       const fonts2 = (meta?.fonts ?? []).filter((_, i) => i !== index);
       onMetaChange?.({ fonts: fonts2 });
@@ -17919,7 +18097,7 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
     },
     [meta?.fonts, onMetaChange]
   );
-  const toggleFont = (0, import_react11.useCallback)((index) => {
+  const toggleFont = (0, import_react12.useCallback)((index) => {
     setExpandedFonts((prev) => {
       const next = new Set(prev);
       if (next.has(index)) next.delete(index);
@@ -17929,18 +18107,18 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
   }, []);
   const tailwindEnabled = meta?.tailwind?.enabled ?? true;
   const fonts = meta?.fonts ?? [];
-  return import_react11.default.createElement(
+  return import_react12.default.createElement(
     "div",
     { className: `oe-properties ${className ?? ""}` },
-    import_react11.default.createElement(
+    import_react12.default.createElement(
       "div",
       { className: "oe-properties-group" },
-      import_react11.default.createElement("div", { className: "oe-properties-group-title" }, "Document"),
-      import_react11.default.createElement(
+      import_react12.default.createElement("div", { className: "oe-properties-group-title" }, "Document"),
+      import_react12.default.createElement(
         "div",
         { className: "oe-field" },
-        import_react11.default.createElement("label", { className: "oe-field-label" }, "Title"),
-        import_react11.default.createElement("input", {
+        import_react12.default.createElement("label", { className: "oe-field-label" }, "Title"),
+        import_react12.default.createElement("input", {
           type: "text",
           className: "oe-field-input",
           placeholder: "My Email Template",
@@ -17948,11 +18126,11 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
           onChange: handleField("title")
         })
       ),
-      import_react11.default.createElement(
+      import_react12.default.createElement(
         "div",
         { className: "oe-field" },
-        import_react11.default.createElement("label", { className: "oe-field-label" }, "Subject Line"),
-        import_react11.default.createElement("input", {
+        import_react12.default.createElement("label", { className: "oe-field-label" }, "Subject Line"),
+        import_react12.default.createElement("input", {
           type: "text",
           className: "oe-field-input",
           placeholder: "Your email subject...",
@@ -17960,11 +18138,11 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
           onChange: handleField("subject")
         })
       ),
-      import_react11.default.createElement(
+      import_react12.default.createElement(
         "div",
         { className: "oe-field" },
-        import_react11.default.createElement("label", { className: "oe-field-label" }, "Preview Text"),
-        import_react11.default.createElement("input", {
+        import_react12.default.createElement("label", { className: "oe-field-label" }, "Preview Text"),
+        import_react12.default.createElement("input", {
           type: "text",
           className: "oe-field-input",
           placeholder: "Short preview shown in inbox...",
@@ -17972,11 +18150,11 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
           onChange: handleField("previewText")
         })
       ),
-      import_react11.default.createElement(
+      import_react12.default.createElement(
         "div",
         { className: "oe-field" },
-        import_react11.default.createElement("label", { className: "oe-field-label" }, "Description"),
-        import_react11.default.createElement("textarea", {
+        import_react12.default.createElement("label", { className: "oe-field-label" }, "Description"),
+        import_react12.default.createElement("textarea", {
           className: "oe-field-input oe-field-textarea",
           placeholder: "Internal notes...",
           rows: 2,
@@ -17985,26 +18163,26 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
         })
       )
     ),
-    import_react11.default.createElement(
+    import_react12.default.createElement(
       "div",
       { className: "oe-properties-group" },
-      import_react11.default.createElement(
+      import_react12.default.createElement(
         "div",
         { className: "oe-properties-group-header" },
-        import_react11.default.createElement("div", { className: "oe-properties-group-title" }, "Web Fonts"),
-        import_react11.default.createElement(
+        import_react12.default.createElement("div", { className: "oe-properties-group-title" }, "Web Fonts"),
+        import_react12.default.createElement(
           "button",
           { type: "button", className: "oe-btn oe-btn-xs", onClick: handleAddFont },
           "+ Add font"
         )
       ),
-      fonts.length === 0 && import_react11.default.createElement(
+      fonts.length === 0 && import_react12.default.createElement(
         "p",
         { className: "oe-properties-empty-hint" },
         "No fonts added yet. Add a web font to use custom typography."
       ),
       ...fonts.map(
-        (font, i) => import_react11.default.createElement(FontCard, {
+        (font, i) => import_react12.default.createElement(FontCard, {
           key: i,
           font,
           index: i,
@@ -18015,17 +18193,17 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
         })
       )
     ),
-    import_react11.default.createElement(
+    import_react12.default.createElement(
       "div",
       { className: "oe-properties-group" },
-      import_react11.default.createElement("div", { className: "oe-properties-group-title" }, "Tailwind CSS"),
-      import_react11.default.createElement(
+      import_react12.default.createElement("div", { className: "oe-properties-group-title" }, "Tailwind CSS"),
+      import_react12.default.createElement(
         "div",
         { className: "oe-field" },
-        import_react11.default.createElement(
+        import_react12.default.createElement(
           "label",
           { className: "oe-field-label oe-field-label-row" },
-          import_react11.default.createElement("input", {
+          import_react12.default.createElement("input", {
             type: "checkbox",
             checked: tailwindEnabled,
             onChange: handleTailwindToggle
@@ -18033,11 +18211,11 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
           "Enable Tailwind CSS"
         )
       ),
-      tailwindEnabled && import_react11.default.createElement(
+      tailwindEnabled && import_react12.default.createElement(
         "div",
         { className: "oe-field" },
-        import_react11.default.createElement("label", { className: "oe-field-label" }, "Theme Config (JSON)"),
-        import_react11.default.createElement("textarea", {
+        import_react12.default.createElement("label", { className: "oe-field-label" }, "Theme Config (JSON)"),
+        import_react12.default.createElement("textarea", {
           className: "oe-field-input oe-field-textarea oe-field-mono",
           placeholder: '{"theme": {"extend": {"colors": {"brand": "#007291"}}}}',
           rows: 4,
@@ -18050,20 +18228,20 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
 }
 
 // src/components/properties-panel/properties-panel-header.tsx
-var import_react12 = __toESM(require("react"));
+var import_react13 = __toESM(require("react"));
 function PropertiesPanelHeader({
   title,
   onDelete
 }) {
-  return import_react12.default.createElement(
+  return import_react13.default.createElement(
     "div",
     { className: "oe-properties-header" },
-    import_react12.default.createElement(
+    import_react13.default.createElement(
       "span",
       { className: "oe-properties-title" },
       title
     ),
-    import_react12.default.createElement(
+    import_react13.default.createElement(
       "button",
       {
         className: "oe-btn-icon",
@@ -18071,13 +18249,13 @@ function PropertiesPanelHeader({
         title: "Delete element",
         style: { color: "var(--oe-danger)" }
       },
-      import_react12.default.createElement(Icons.trash, { size: 16 })
+      import_react13.default.createElement(Icons.trash, { size: 16 })
     )
   );
 }
 
 // src/components/properties-panel/variable-inserter.tsx
-var import_react13 = __toESM(require("react"));
+var import_react14 = __toESM(require("react"));
 
 // src/components/properties-panel/utils.ts
 var CONTENT_NODE_TYPES = ["text", "heading", "link", "button"];
@@ -18122,19 +18300,19 @@ function VariableInserter({
   onCreateAndInsert
 }) {
   const variables = useVariables();
-  const [variableSelectOpen, setVariableSelectOpen] = (0, import_react13.useState)(false);
-  const [variableSearch, setVariableSearch] = (0, import_react13.useState)("");
-  const [newVarName, setNewVarName] = (0, import_react13.useState)("");
-  const [newVarFallback, setNewVarFallback] = (0, import_react13.useState)("");
-  const [showCreateForm, setShowCreateForm] = (0, import_react13.useState)(false);
-  const searchInputRef = (0, import_react13.useRef)(null);
-  const comboboxRef = (0, import_react13.useRef)(null);
-  (0, import_react13.useEffect)(() => {
+  const [variableSelectOpen, setVariableSelectOpen] = (0, import_react14.useState)(false);
+  const [variableSearch, setVariableSearch] = (0, import_react14.useState)("");
+  const [newVarName, setNewVarName] = (0, import_react14.useState)("");
+  const [newVarFallback, setNewVarFallback] = (0, import_react14.useState)("");
+  const [showCreateForm, setShowCreateForm] = (0, import_react14.useState)(false);
+  const searchInputRef = (0, import_react14.useRef)(null);
+  const comboboxRef = (0, import_react14.useRef)(null);
+  (0, import_react14.useEffect)(() => {
     if (variableSelectOpen && searchInputRef.current) {
       searchInputRef.current.focus();
     }
   }, [variableSelectOpen]);
-  (0, import_react13.useEffect)(() => {
+  (0, import_react14.useEffect)(() => {
     const handleClickOutside = (e) => {
       if (comboboxRef.current && !comboboxRef.current.contains(e.target)) {
         setVariableSelectOpen(false);
@@ -18149,7 +18327,7 @@ function VariableInserter({
       return () => window.document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [variableSelectOpen]);
-  const handleInsertVariable = (0, import_react13.useCallback)(
+  const handleInsertVariable = (0, import_react14.useCallback)(
     (variableName) => {
       onInsert(variableName);
       setVariableSelectOpen(false);
@@ -18158,28 +18336,28 @@ function VariableInserter({
     },
     [onInsert]
   );
-  const filteredVariables = (0, import_react13.useMemo)(() => {
+  const filteredVariables = (0, import_react14.useMemo)(() => {
     const entries = Object.entries(variables);
     const search = variableSearch.toLowerCase().trim();
     if (!search) return entries;
     return entries.filter(([name]) => name.toLowerCase().includes(search));
   }, [variables, variableSearch]);
   const variableCount = filteredVariables.length;
-  return import_react13.default.createElement(
+  return import_react14.default.createElement(
     "div",
     { className: "oe-properties-group" },
-    import_react13.default.createElement(
+    import_react14.default.createElement(
       "div",
       { className: "oe-properties-group-title" },
       "Insert variable"
     ),
-    import_react13.default.createElement(
+    import_react14.default.createElement(
       "div",
       { className: "oe-variable-combobox", ref: comboboxRef },
-      variableSelectOpen ? import_react13.default.createElement(
+      variableSelectOpen ? import_react14.default.createElement(
         "div",
         { className: "oe-variable-combobox-dropdown" },
-        import_react13.default.createElement("input", {
+        import_react14.default.createElement("input", {
           ref: searchInputRef,
           type: "text",
           className: "oe-field-input",
@@ -18194,11 +18372,11 @@ function VariableInserter({
             }
           }
         }),
-        filteredVariables.length > 0 && import_react13.default.createElement(
+        filteredVariables.length > 0 && import_react14.default.createElement(
           "div",
           { className: "oe-variable-combobox-list" },
           filteredVariables.map(
-            ([name, def]) => import_react13.default.createElement(
+            ([name, def]) => import_react14.default.createElement(
               "button",
               {
                 key: name,
@@ -18206,12 +18384,12 @@ function VariableInserter({
                 className: "oe-variable-combobox-item",
                 onClick: () => handleInsertVariable(name)
               },
-              import_react13.default.createElement(
+              import_react14.default.createElement(
                 "code",
                 { className: "oe-variable-combobox-key" },
                 `{{${name}}}`
               ),
-              import_react13.default.createElement(
+              import_react14.default.createElement(
                 "span",
                 { className: "oe-variable-combobox-fallback" },
                 def.fallback || "\u2014"
@@ -18219,15 +18397,15 @@ function VariableInserter({
             )
           )
         ),
-        variableSearch.trim() && !variables[variableSearch.trim()] && isValidVariableKey(variableSearch.trim()) || showCreateForm ? import_react13.default.createElement(
+        variableSearch.trim() && !variables[variableSearch.trim()] && isValidVariableKey(variableSearch.trim()) || showCreateForm ? import_react14.default.createElement(
           "div",
           { className: "oe-variable-combobox-create" },
-          import_react13.default.createElement(
+          import_react14.default.createElement(
             "div",
             { className: "oe-variable-combobox-create-header" },
             "Create new variable"
           ),
-          import_react13.default.createElement("input", {
+          import_react14.default.createElement("input", {
             type: "text",
             className: "oe-field-input",
             placeholder: "variableName",
@@ -18235,14 +18413,14 @@ function VariableInserter({
             onChange: (e) => setNewVarName(e.target.value),
             "data-invalid": newVarName.trim() && !isValidVariableKey(newVarName.trim()) ? "true" : void 0
           }),
-          import_react13.default.createElement("input", {
+          import_react14.default.createElement("input", {
             type: "text",
             className: "oe-field-input",
             placeholder: "Fallback text",
             value: newVarFallback,
             onChange: (e) => setNewVarFallback(e.target.value)
           }),
-          import_react13.default.createElement(
+          import_react14.default.createElement(
             "button",
             {
               type: "button",
@@ -18264,12 +18442,12 @@ function VariableInserter({
             },
             "Create & Insert"
           )
-        ) : filteredVariables.length === 0 && variableSearch.trim() && import_react13.default.createElement(
+        ) : filteredVariables.length === 0 && variableSearch.trim() && import_react14.default.createElement(
           "div",
           { className: "oe-variable-combobox-empty" },
           "No variables found. Type a valid name to create one."
         )
-      ) : import_react13.default.createElement(
+      ) : import_react14.default.createElement(
         "button",
         {
           type: "button",
@@ -18283,12 +18461,12 @@ function VariableInserter({
 }
 
 // src/components/properties-panel/properties-group.tsx
-var import_react15 = __toESM(require("react"));
+var import_react16 = __toESM(require("react"));
 
 // src/components/properties-panel/property-field.tsx
-var import_react14 = __toESM(require("react"));
+var import_react15 = __toESM(require("react"));
 function PropertyField({ schema, value, onChange }) {
-  const handleChange = (0, import_react14.useCallback)(
+  const handleChange = (0, import_react15.useCallback)(
     (e) => {
       let newValue = e.target.value;
       if (schema.type === "number") {
@@ -18303,15 +18481,15 @@ function PropertyField({ schema, value, onChange }) {
   const stringValue = value !== void 0 && value !== null ? String(value) : "";
   switch (schema.type) {
     case "textarea":
-      return import_react14.default.createElement(
+      return import_react15.default.createElement(
         "div",
         { className: "oe-field" },
-        import_react14.default.createElement(
+        import_react15.default.createElement(
           "label",
           { className: "oe-field-label" },
           schema.label
         ),
-        import_react14.default.createElement("textarea", {
+        import_react15.default.createElement("textarea", {
           className: "oe-field-textarea",
           value: stringValue,
           onChange: handleChange,
@@ -18319,24 +18497,24 @@ function PropertyField({ schema, value, onChange }) {
         })
       );
     case "select":
-      return import_react14.default.createElement(
+      return import_react15.default.createElement(
         "div",
         { className: "oe-field" },
-        import_react14.default.createElement(
+        import_react15.default.createElement(
           "label",
           { className: "oe-field-label" },
           schema.label
         ),
-        import_react14.default.createElement(
+        import_react15.default.createElement(
           "select",
           {
             className: "oe-field-select",
             value: stringValue,
             onChange: handleChange
           },
-          import_react14.default.createElement("option", { value: "" }, "\u2014"),
+          import_react15.default.createElement("option", { value: "" }, "\u2014"),
           ...(schema.options ?? []).map(
-            (opt) => import_react14.default.createElement(
+            (opt) => import_react15.default.createElement(
               "option",
               { key: opt.value, value: opt.value },
               opt.label
@@ -18345,24 +18523,24 @@ function PropertyField({ schema, value, onChange }) {
         )
       );
     case "color":
-      return import_react14.default.createElement(
+      return import_react15.default.createElement(
         "div",
         { className: "oe-field" },
-        import_react14.default.createElement(
+        import_react15.default.createElement(
           "label",
           { className: "oe-field-label" },
           schema.label
         ),
-        import_react14.default.createElement(
+        import_react15.default.createElement(
           "div",
           { className: "oe-field-color-wrapper" },
-          import_react14.default.createElement("input", {
+          import_react15.default.createElement("input", {
             type: "color",
             className: "oe-field-color-swatch",
             value: stringValue || "#000000",
             onChange: handleChange
           }),
-          import_react14.default.createElement("input", {
+          import_react15.default.createElement("input", {
             type: "text",
             className: "oe-field-input",
             value: stringValue,
@@ -18373,10 +18551,10 @@ function PropertyField({ schema, value, onChange }) {
         )
       );
     case "toggle":
-      return import_react14.default.createElement(
+      return import_react15.default.createElement(
         "div",
         { className: "oe-field" },
-        import_react14.default.createElement(
+        import_react15.default.createElement(
           "label",
           {
             className: "oe-field-label",
@@ -18387,7 +18565,7 @@ function PropertyField({ schema, value, onChange }) {
               cursor: "pointer"
             }
           },
-          import_react14.default.createElement("input", {
+          import_react15.default.createElement("input", {
             type: "checkbox",
             checked: !!value,
             onChange: handleChange
@@ -18396,15 +18574,15 @@ function PropertyField({ schema, value, onChange }) {
         )
       );
     case "number":
-      return import_react14.default.createElement(
+      return import_react15.default.createElement(
         "div",
         { className: "oe-field" },
-        import_react14.default.createElement(
+        import_react15.default.createElement(
           "label",
           { className: "oe-field-label" },
           schema.label
         ),
-        import_react14.default.createElement("input", {
+        import_react15.default.createElement("input", {
           type: "number",
           className: "oe-field-input",
           value: stringValue,
@@ -18416,15 +18594,15 @@ function PropertyField({ schema, value, onChange }) {
     case "text":
     case "spacing":
     default:
-      return import_react14.default.createElement(
+      return import_react15.default.createElement(
         "div",
         { className: "oe-field" },
-        import_react14.default.createElement(
+        import_react15.default.createElement(
           "label",
           { className: "oe-field-label" },
           schema.label
         ),
-        import_react14.default.createElement("input", {
+        import_react15.default.createElement("input", {
           type: schema.type === "url" ? "url" : "text",
           className: "oe-field-input",
           value: stringValue,
@@ -18442,16 +18620,16 @@ function PropertiesGroup({
   nodeProps,
   onChange
 }) {
-  return import_react15.default.createElement(
+  return import_react16.default.createElement(
     "div",
     { className: "oe-properties-group" },
-    import_react15.default.createElement(
+    import_react16.default.createElement(
       "div",
       { className: "oe-properties-group-title" },
       GROUP_LABELS[group] ?? group
     ),
     ...properties.map(
-      (prop) => import_react15.default.createElement(PropertyField, {
+      (prop) => import_react16.default.createElement(PropertyField, {
         key: prop.key,
         schema: prop,
         value: resolveValue(nodeProps, prop.key),
@@ -18474,38 +18652,28 @@ function PropertiesPanel({ className, registry }) {
   } = useEditor();
   const selectedNode = useSelectedNode();
   const reg = registry ?? defaultRegistry;
-  const definition = (0, import_react16.useMemo)(
+  const definition = (0, import_react17.useMemo)(
     () => selectedNode ? reg.get(selectedNode.type) : void 0,
     [selectedNode, reg]
   );
-  const handlePropertyChange = (0, import_react16.useCallback)(
+  const handlePropertyChange = (0, import_react17.useCallback)(
     (key, value) => {
       if (!selectedNodeId) return;
-      if (key.includes(".")) {
-        const parts = key.split(".");
-        if (parts.length === 2) {
-          const [parent, child] = parts;
-          updateNode2(selectedNodeId, {
-            [parent]: {
-              ...resolveValue(selectedNode?.props ?? {}, parent) ?? {},
-              [child]: value === "" ? void 0 : value
-            }
-          });
-          return;
-        }
-      }
-      updateNode2(selectedNodeId, { [key]: value === "" ? void 0 : value });
+      updateNode2(
+        selectedNodeId,
+        buildNodePatchFromPropertyKey(selectedNode?.props ?? {}, key, value)
+      );
     },
     [selectedNodeId, selectedNode, updateNode2]
   );
-  const handleDelete = (0, import_react16.useCallback)(() => {
+  const handleDelete = (0, import_react17.useCallback)(() => {
     if (selectedNodeId) {
       deleteNode(selectedNodeId);
     }
   }, [selectedNodeId, deleteNode]);
   const contentKey = selectedNode && CONTENT_KEY[selectedNode.type];
   const currentContent = contentKey && selectedNode?.props?.[contentKey];
-  const handleInsertVariable = (0, import_react16.useCallback)(
+  const handleInsertVariable = (0, import_react17.useCallback)(
     (variableName) => {
       if (!selectedNodeId || !contentKey) return;
       const newValue = insertVariableIntoContent(currentContent, variableName);
@@ -18513,7 +18681,7 @@ function PropertiesPanel({ className, registry }) {
     },
     [selectedNodeId, contentKey, currentContent, updateNode2]
   );
-  const handleCreateAndInsert = (0, import_react16.useCallback)(
+  const handleCreateAndInsert = (0, import_react17.useCallback)(
     (name, fallback) => {
       const variables = { ...emailDocument.variables ?? {}, [name]: { fallback } };
       if (selectedNodeId && contentKey) {
@@ -18525,7 +18693,7 @@ function PropertiesPanel({ className, registry }) {
     },
     [emailDocument.variables, createVariableAndInsert, updateVariables, selectedNodeId, contentKey, currentContent]
   );
-  const groups = (0, import_react16.useMemo)(() => {
+  const groups = (0, import_react17.useMemo)(() => {
     if (!definition?.properties) return {};
     const grouped = {};
     for (const prop of definition.properties) {
@@ -18535,14 +18703,14 @@ function PropertiesPanel({ className, registry }) {
     }
     return grouped;
   }, [definition?.properties]);
-  const handleMetaChange = (0, import_react16.useCallback)(
+  const handleMetaChange = (0, import_react17.useCallback)(
     (update) => {
       updateDocumentMeta(update);
     },
     [updateDocumentMeta]
   );
   if (!selectedNode || !definition) {
-    return import_react16.default.createElement(PropertiesPanelEmpty, {
+    return import_react17.default.createElement(PropertiesPanelEmpty, {
       className,
       meta: emailDocument.meta,
       onMetaChange: handleMetaChange
@@ -18551,14 +18719,14 @@ function PropertiesPanel({ className, registry }) {
   const canInsertVariable = selectedNode && CONTENT_NODE_TYPES.includes(
     selectedNode.type
   );
-  return import_react16.default.createElement(
+  return import_react17.default.createElement(
     "div",
     { className: `oe-properties ${className ?? ""}` },
-    import_react16.default.createElement(PropertiesPanelHeader, {
+    import_react17.default.createElement(PropertiesPanelHeader, {
       title: definition.label,
       onDelete: handleDelete
     }),
-    canInsertVariable && import_react16.default.createElement(VariableInserter, {
+    canInsertVariable && import_react17.default.createElement(VariableInserter, {
       selectedNodeId: selectedNodeId || void 0,
       contentKey: contentKey || void 0,
       currentContent: currentContent || void 0,
@@ -18566,7 +18734,7 @@ function PropertiesPanel({ className, registry }) {
       onCreateAndInsert: handleCreateAndInsert
     }),
     ...GROUP_ORDER.filter((g) => groups[g] && groups[g].length > 0).map(
-      (group) => import_react16.default.createElement(PropertiesGroup, {
+      (group) => import_react17.default.createElement(PropertiesGroup, {
         key: group,
         group,
         properties: groups[group],
@@ -18604,20 +18772,20 @@ function EmailEditor({
     availableModes,
     registry
   } = config;
-  return import_react17.default.createElement(
+  return import_react18.default.createElement(
     EditorProvider,
     { initialDocument, onChange },
-    import_react17.default.createElement(
+    import_react18.default.createElement(
       DragDropProvider,
       null,
-      import_react17.default.createElement(
+      import_react18.default.createElement(
         "div",
         {
           className: `open-email-editor ${className ?? ""}`,
           "data-theme": theme,
           style
         },
-        showToolbar && toolbar !== false && (toolbar ?? import_react17.default.createElement(EditorToolbar, {
+        showToolbar && toolbar !== false && (toolbar ?? import_react18.default.createElement(EditorToolbar, {
           modes: availableModes,
           actions: toolbarActions,
           variableData,
@@ -18627,12 +18795,12 @@ function EmailEditor({
           onExportHTML,
           onExportJSON
         })),
-        import_react17.default.createElement(
+        import_react18.default.createElement(
           "div",
           { className: "oe-editor-body" },
-          showSidebar && sidebar !== false && (sidebar ?? import_react17.default.createElement(EditorSidebar, { registry })),
-          canvas ?? import_react17.default.createElement(EditorCanvas, { variableData }),
-          showProperties && propertiesPanel !== false && (propertiesPanel ?? import_react17.default.createElement(PropertiesPanel, { registry }))
+          showSidebar && sidebar !== false && (sidebar ?? import_react18.default.createElement(EditorSidebar, { registry })),
+          canvas ?? import_react18.default.createElement(EditorCanvas, { variableData }),
+          showProperties && propertiesPanel !== false && (propertiesPanel ?? import_react18.default.createElement(PropertiesPanel, { registry }))
         )
       )
     )
@@ -18640,7 +18808,7 @@ function EmailEditor({
 }
 
 // src/components/variable-manager.tsx
-var import_react18 = __toESM(require("react"));
+var import_react19 = __toESM(require("react"));
 var VARIABLE_KEY_REGEX2 = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 function isValidVariableKey2(key) {
   return key.length > 0 && VARIABLE_KEY_REGEX2.test(key);
@@ -18648,12 +18816,12 @@ function isValidVariableKey2(key) {
 function VariableManager({ className }) {
   const { document: document2, updateVariables } = useEditor();
   const variables = document2.variables ?? {};
-  const [editingKey, setEditingKey] = (0, import_react18.useState)(null);
-  const [newKey, setNewKey] = (0, import_react18.useState)("");
-  const [newFallback, setNewFallback] = (0, import_react18.useState)("");
-  const [addMode, setAddMode] = (0, import_react18.useState)(false);
+  const [editingKey, setEditingKey] = (0, import_react19.useState)(null);
+  const [newKey, setNewKey] = (0, import_react19.useState)("");
+  const [newFallback, setNewFallback] = (0, import_react19.useState)("");
+  const [addMode, setAddMode] = (0, import_react19.useState)(false);
   const entries = Object.entries(variables);
-  const handleSaveEdit = (0, import_react18.useCallback)(
+  const handleSaveEdit = (0, import_react19.useCallback)(
     (key, fallback) => {
       const next = { ...variables, [key]: { fallback } };
       updateVariables(next);
@@ -18661,7 +18829,7 @@ function VariableManager({ className }) {
     },
     [variables, updateVariables]
   );
-  const handleDelete = (0, import_react18.useCallback)(
+  const handleDelete = (0, import_react19.useCallback)(
     (key) => {
       const next = { ...variables };
       delete next[key];
@@ -18670,7 +18838,7 @@ function VariableManager({ className }) {
     },
     [variables, updateVariables]
   );
-  const handleAdd = (0, import_react18.useCallback)(() => {
+  const handleAdd = (0, import_react19.useCallback)(() => {
     const k = newKey.trim();
     const f = newFallback.trim();
     if (!isValidVariableKey2(k)) return;
@@ -18680,24 +18848,24 @@ function VariableManager({ className }) {
     setNewFallback("");
     setAddMode(false);
   }, [variables, updateVariables, newKey, newFallback]);
-  const startAdd = (0, import_react18.useCallback)(() => {
+  const startAdd = (0, import_react19.useCallback)(() => {
     setAddMode(true);
     setNewKey("");
     setNewFallback("");
   }, []);
-  const cancelAdd = (0, import_react18.useCallback)(() => {
+  const cancelAdd = (0, import_react19.useCallback)(() => {
     setAddMode(false);
     setNewKey("");
     setNewFallback("");
   }, []);
-  return import_react18.default.createElement(
+  return import_react19.default.createElement(
     "div",
     { className: `oe-variable-manager ${className ?? ""}` },
-    import_react18.default.createElement(
+    import_react19.default.createElement(
       "div",
       { className: "oe-variable-manager-header" },
-      import_react18.default.createElement("span", { className: "oe-properties-group-title" }, "Variables"),
-      import_react18.default.createElement(
+      import_react19.default.createElement("span", { className: "oe-properties-group-title" }, "Variables"),
+      import_react19.default.createElement(
         "button",
         {
           type: "button",
@@ -18705,13 +18873,13 @@ function VariableManager({ className }) {
           onClick: addMode ? cancelAdd : startAdd,
           title: addMode ? "Cancel" : "Add variable"
         },
-        import_react18.default.createElement(addMode ? Icons.close : Icons.plus, { size: 14 })
+        import_react19.default.createElement(addMode ? Icons.close : Icons.plus, { size: 14 })
       )
     ),
-    addMode && import_react18.default.createElement(
+    addMode && import_react19.default.createElement(
       "div",
       { className: "oe-variable-manager-add" },
-      import_react18.default.createElement("input", {
+      import_react19.default.createElement("input", {
         type: "text",
         className: "oe-field-input",
         placeholder: "variableName",
@@ -18719,14 +18887,14 @@ function VariableManager({ className }) {
         onChange: (e) => setNewKey(e.target.value),
         "data-invalid": newKey.trim() && !isValidVariableKey2(newKey.trim()) ? "true" : void 0
       }),
-      import_react18.default.createElement("input", {
+      import_react19.default.createElement("input", {
         type: "text",
         className: "oe-field-input",
         placeholder: "Fallback text",
         value: newFallback,
         onChange: (e) => setNewFallback(e.target.value)
       }),
-      import_react18.default.createElement(
+      import_react19.default.createElement(
         "button",
         {
           type: "button",
@@ -18737,38 +18905,38 @@ function VariableManager({ className }) {
         "Add"
       )
     ),
-    entries.length === 0 && !addMode ? import_react18.default.createElement(
+    entries.length === 0 && !addMode ? import_react19.default.createElement(
       "div",
       { className: "oe-variable-manager-empty" },
       "No variables. Use {{name}} in text and add variables here."
     ) : entries.map(
-      ([key, def]) => editingKey === key ? import_react18.default.createElement(VariableRowEdit, {
+      ([key, def]) => editingKey === key ? import_react19.default.createElement(VariableRowEdit, {
         key,
         name: key,
         fallback: def.fallback,
         onSave: (fallback) => handleSaveEdit(key, fallback),
         onDelete: () => handleDelete(key),
         onCancel: () => setEditingKey(null)
-      }) : import_react18.default.createElement(
+      }) : import_react19.default.createElement(
         "div",
         {
           key,
           className: "oe-variable-manager-row",
           onClick: () => setEditingKey(key)
         },
-        import_react18.default.createElement("code", { className: "oe-variable-manager-key" }, `{{${key}}}`),
-        import_react18.default.createElement("span", { className: "oe-variable-manager-fallback" }, def.fallback || "\u2014")
+        import_react19.default.createElement("code", { className: "oe-variable-manager-key" }, `{{${key}}}`),
+        import_react19.default.createElement("span", { className: "oe-variable-manager-fallback" }, def.fallback || "\u2014")
       )
     )
   );
 }
 function VariableRowEdit({ name, fallback, onSave, onDelete, onCancel }) {
-  const [value, setValue] = (0, import_react18.useState)(fallback);
-  return import_react18.default.createElement(
+  const [value, setValue] = (0, import_react19.useState)(fallback);
+  return import_react19.default.createElement(
     "div",
     { className: "oe-variable-manager-row oe-variable-manager-row-edit" },
-    import_react18.default.createElement("code", { className: "oe-variable-manager-key" }, `{{${name}}}`),
-    import_react18.default.createElement("input", {
+    import_react19.default.createElement("code", { className: "oe-variable-manager-key" }, `{{${name}}}`),
+    import_react19.default.createElement("input", {
       type: "text",
       className: "oe-field-input",
       value,
@@ -18776,20 +18944,20 @@ function VariableRowEdit({ name, fallback, onSave, onDelete, onCancel }) {
       placeholder: "Fallback",
       onClick: (e) => e.stopPropagation()
     }),
-    import_react18.default.createElement(
+    import_react19.default.createElement(
       "div",
       { className: "oe-variable-manager-actions" },
-      import_react18.default.createElement(
+      import_react19.default.createElement(
         "button",
         { type: "button", className: "oe-btn-icon", onClick: () => onSave(value), title: "Save" },
-        import_react18.default.createElement(Icons.check, { size: 14 })
+        import_react19.default.createElement(Icons.check, { size: 14 })
       ),
-      import_react18.default.createElement(
+      import_react19.default.createElement(
         "button",
         { type: "button", className: "oe-btn-icon", onClick: onCancel, title: "Cancel" },
-        import_react18.default.createElement(Icons.close, { size: 14 })
+        import_react19.default.createElement(Icons.close, { size: 14 })
       ),
-      import_react18.default.createElement(
+      import_react19.default.createElement(
         "button",
         {
           type: "button",
@@ -18801,7 +18969,7 @@ function VariableRowEdit({ name, fallback, onSave, onDelete, onCancel }) {
           title: "Delete",
           style: { color: "var(--oe-danger)" }
         },
-        import_react18.default.createElement(Icons.trash, { size: 14 })
+        import_react19.default.createElement(Icons.trash, { size: 14 })
       )
     )
   );

@@ -1,8 +1,3 @@
-// ─── Email Document Schema ───────────────────────────────────────────────────
-// JSON-based document model where each node maps 1:1 to a React Email component.
-// This is the core data structure that powers both visual editing and code export.
-
-/** Unique identifier for document nodes */
 export type NodeId = string;
 
 /** Supported email component types */
@@ -21,42 +16,33 @@ export type EmailNodeType =
   | "code-block"
   | "code-inline"
   | "markdown"
+  | "html"
   | "preview"
-  | "font";
+  | "font"
+  | "tailwind";
 
-/** Base props shared across all nodes */
 export interface BaseNodeProps {
   style?: React.CSSProperties;
   className?: string;
 }
 
-/** Container node props */
 export interface ContainerProps extends BaseNodeProps {
-  /** Maximum width, e.g. "600px" */
   maxWidth?: string;
 }
 
-/** Section node props */
-export interface SectionProps extends BaseNodeProps { }
+export interface SectionProps extends BaseNodeProps {}
+export interface RowProps extends BaseNodeProps {}
+export interface ColumnProps extends BaseNodeProps {}
 
-/** Row node props */
-export interface RowProps extends BaseNodeProps { }
-
-/** Column node props */
-export interface ColumnProps extends BaseNodeProps { }
-
-/** Text node props */
 export interface TextProps extends BaseNodeProps {
   content?: string;
 }
 
-/** Heading node props */
 export interface HeadingProps extends BaseNodeProps {
   content?: string;
   as?: "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
 }
 
-/** Button node props */
 export interface ButtonProps extends BaseNodeProps {
   text?: string;
   href?: string;
@@ -66,7 +52,6 @@ export interface ButtonProps extends BaseNodeProps {
   padding?: string;
 }
 
-/** Image node props */
 export interface ImageProps extends BaseNodeProps {
   src?: string;
   alt?: string;
@@ -74,25 +59,21 @@ export interface ImageProps extends BaseNodeProps {
   height?: number;
 }
 
-/** Link node props */
 export interface LinkProps extends BaseNodeProps {
   href?: string;
   content?: string;
   color?: string;
 }
 
-/** Hr (divider) node props */
 export interface HrProps extends BaseNodeProps {
   borderColor?: string;
   borderWidth?: string;
 }
 
-/** Spacer node props */
 export interface SpacerProps extends BaseNodeProps {
   height?: string;
 }
 
-/** Union of all node prop types */
 export type EmailNodeProps =
   | ContainerProps
   | SectionProps
@@ -106,59 +87,50 @@ export type EmailNodeProps =
   | HrProps
   | SpacerProps;
 
-// ─── Email Node ──────────────────────────────────────────────────────────────
-
-/** A single node in the email document tree */
 export interface EmailNode {
-  /** Unique identifier */
   id: NodeId;
-  /** Component type */
   type: EmailNodeType;
-  /** Component-specific props */
   props: Record<string, unknown>;
-  /** Child nodes (for layout components) */
   children?: EmailNode[];
 }
 
-// ─── Email Document ──────────────────────────────────────────────────────────
-
-/** Variable definition with fallback used when no data is provided at render time */
 export interface VariableDefinition {
   fallback: string;
 }
 
-/** Root document representing a complete email template */
+export interface FontConfig {
+  fontFamily: string;
+  fallbackFontFamily?: string;
+  webFontUrl?: string;
+  webFontFormat?: "woff2" | "woff" | "ttf" | "otf";
+  fontWeight?: number | string;
+  fontStyle?: "normal" | "italic" | "oblique";
+}
+
 export interface EmailDocument {
-  /** Document version for schema migrations */
   version: 1;
-  /** Template metadata */
   meta: {
     title: string;
     description?: string;
     previewText?: string;
-    /** Subject line */
     subject?: string;
+    fonts?: FontConfig[];
+    tailwind?: {
+      enabled: boolean;
+      config?: string;
+    };
   };
-  /** Root body node containing the email tree */
   body: EmailNode;
-  /** Document-level variables: unique key → definition with fallback. Referenced in content as {{variableName}} */
+  /** Variables referenced in content as {{variableName}} */
   variables?: Record<string, VariableDefinition>;
 }
 
-// ─── Editor Types ────────────────────────────────────────────────────────────
-
-/** Editor display mode */
 export type EditorMode = "visual" | "code" | "preview";
 
-/** Editor state */
 export interface EditorState {
-  /** The current document being edited */
   document: EmailDocument;
-  /** ID of the currently selected node */
   selectedNodeId: NodeId | null;
-  /** Current display mode */
   mode: EditorMode;
-  /** Whether the document has unsaved changes */
   isDirty: boolean;
 }
 
@@ -171,74 +143,51 @@ export type EditorAction =
   | { type: "DELETE_NODE"; payload: NodeId }
   | { type: "MOVE_NODE"; payload: { nodeId: NodeId; newParentId: NodeId; index?: number } }
   | { type: "UPDATE_VARIABLES"; payload: Record<string, VariableDefinition> }
+  | { type: "UPDATE_DOCUMENT_META"; payload: Partial<EmailDocument["meta"]> }
+  | {
+      type: "CREATE_VARIABLE_AND_UPDATE_NODE";
+      payload: {
+        variables: Record<string, VariableDefinition>;
+        nodeId: NodeId;
+        contentKey: string;
+        newContent: string;
+      };
+    }
   | { type: "SET_MODE"; payload: EditorMode }
   | { type: "MARK_CLEAN" };
 
-// ─── Component Registry Types ────────────────────────────────────────────────
-
-/** Schema for a single editable property */
 export interface PropertySchema {
-  /** Property key in the node props */
   key: string;
-  /** Display label */
   label: string;
-  /** Input type for the property editor */
   type: "text" | "textarea" | "number" | "color" | "select" | "toggle" | "url" | "spacing";
-  /** Default value */
   defaultValue?: unknown;
-  /** Options for select type */
   options?: { label: string; value: string }[];
-  /** Property group for UI organization */
   group?: "content" | "layout" | "style";
-  /** Placeholder text */
   placeholder?: string;
 }
 
-/** Definition of a component in the registry */
 export interface ComponentDefinition {
-  /** Unique type identifier matching EmailNodeType */
   type: EmailNodeType;
-  /** Human-readable name */
   label: string;
-  /** Icon name or SVG string */
   icon: string;
-  /** Category for grouping */
   category: "layout" | "content" | "utility";
-  /** Description shown in component palette */
   description: string;
-  /** Default props when the component is added */
   defaultProps: Record<string, unknown>;
-  /** Whether this component can contain children */
   acceptsChildren: boolean;
-  /** Allowed child types (empty = any) */
   allowedChildTypes?: EmailNodeType[];
-  /** Editable property definitions */
   properties: PropertySchema[];
 }
 
-/** Component registry mapping types to definitions */
 export type ComponentRegistry = Map<EmailNodeType, ComponentDefinition>;
 
-// ─── Editor Config ───────────────────────────────────────────────────────────
-
-/** Configuration for the EmailEditor component */
 export interface EditorConfig {
-  /** Custom component registry (uses default if not provided) */
   registry?: ComponentRegistry;
-  /** Available modes (defaults to all three) */
   availableModes?: EditorMode[];
-  /** Whether to show the sidebar */
   showSidebar?: boolean;
-  /** Whether to show the toolbar */
   showToolbar?: boolean;
-  /** Whether to show the properties panel */
   showProperties?: boolean;
-  /** Whether to show the JSON export button */
   showExportJSON?: boolean;
-  /** Whether to show the HTML export button */
   showExportHTML?: boolean;
-  /** Theme: "light" | "dark" | "system" */
   theme?: "light" | "dark" | "system";
-  /** Custom class name for the root editor element */
   className?: string;
 }

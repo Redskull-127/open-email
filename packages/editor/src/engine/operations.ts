@@ -167,7 +167,11 @@ export function validateDocument(doc: EmailDocument): string[] {
 export function createEmptyDocument(title = "Untitled Email"): EmailDocument {
   return {
     version: 1,
-    meta: { title },
+    meta: {
+      title,
+      tailwind: { enabled: true },
+      fonts: [],
+    },
     body: createNode("container", { maxWidth: "600px" }, [
       createNode("section", {}, [
         createNode("text", { content: "Start building your email..." }),

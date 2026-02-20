@@ -106,6 +106,29 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
         isDirty: true,
       };
 
+    case "UPDATE_DOCUMENT_META":
+      return {
+        ...state,
+        document: {
+          ...state.document,
+          meta: { ...state.document.meta, ...action.payload },
+        },
+        isDirty: true,
+      };
+
+    case "CREATE_VARIABLE_AND_UPDATE_NODE":
+      return {
+        ...state,
+        document: {
+          ...state.document,
+          variables: action.payload.variables,
+          body: updateNodeOp(state.document.body, action.payload.nodeId, {
+            [action.payload.contentKey]: action.payload.newContent,
+          }),
+        },
+        isDirty: true,
+      };
+
     case "SET_MODE":
       return {
         ...state,
@@ -131,14 +154,21 @@ interface EditorContextValue {
 const EditorContext = createContext<EditorContextValue | null>(null);
 
 export interface EditorProviderProps {
-  /** Initial document to load */
   initialDocument?: EmailDocument;
-  /** Callback when document changes */
   onChange?: (document: EmailDocument) => void;
   children?: ReactNode;
 }
 
-const DIRTY_ACTIONS = new Set(["UPDATE_NODE", "ADD_NODE", "DELETE_NODE", "MOVE_NODE", "UPDATE_VARIABLES"]);
+const DIRTY_ACTIONS = new Set([
+  "SET_DOCUMENT",
+  "UPDATE_NODE",
+  "ADD_NODE",
+  "DELETE_NODE",
+  "MOVE_NODE",
+  "UPDATE_VARIABLES",
+  "UPDATE_DOCUMENT_META",
+  "CREATE_VARIABLE_AND_UPDATE_NODE",
+]);
 
 export function EditorProvider({
   initialDocument,
@@ -200,6 +230,18 @@ export function useEditor() {
         dispatch({ type: "MOVE_NODE", payload: { nodeId, newParentId, index } }),
       updateVariables: (variables: Record<string, { fallback: string }>) =>
         dispatch({ type: "UPDATE_VARIABLES", payload: variables }),
+      updateDocumentMeta: (meta: Partial<EmailDocument["meta"]>) =>
+        dispatch({ type: "UPDATE_DOCUMENT_META", payload: meta }),
+      createVariableAndInsert: (
+        variables: Record<string, { fallback: string }>,
+        nodeId: NodeId,
+        contentKey: string,
+        newContent: string
+      ) =>
+        dispatch({
+          type: "CREATE_VARIABLE_AND_UPDATE_NODE",
+          payload: { variables, nodeId, contentKey, newContent },
+        }),
       setMode: (mode: EditorMode) =>
         dispatch({ type: "SET_MODE", payload: mode }),
       markClean: () => dispatch({ type: "MARK_CLEAN" }),

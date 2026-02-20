@@ -15,7 +15,15 @@ export interface PropertiesPanelProps {
 }
 
 export function PropertiesPanel({ className, registry }: PropertiesPanelProps) {
-  const { selectedNodeId, document: emailDocument, updateNode, deleteNode, updateVariables } = useEditor();
+  const {
+    selectedNodeId,
+    document: emailDocument,
+    updateNode,
+    deleteNode,
+    updateVariables,
+    updateDocumentMeta,
+    createVariableAndInsert,
+  } = useEditor();
   const selectedNode = useSelectedNode();
   const reg = registry ?? defaultRegistry;
 
@@ -76,15 +84,15 @@ export function PropertiesPanel({ className, registry }: PropertiesPanelProps) {
 
   const handleCreateAndInsert = useCallback(
     (name: string, fallback: string) => {
-      const variables = emailDocument.variables ?? {};
-      updateVariables({ ...variables, [name]: { fallback } });
-      
+      const variables = { ...(emailDocument.variables ?? {}), [name]: { fallback } };
       if (selectedNodeId && contentKey) {
         const newValue = insertVariableIntoContent(currentContent, name);
-        updateNode(selectedNodeId, { [contentKey]: newValue });
+        createVariableAndInsert(variables, selectedNodeId, contentKey, newValue);
+      } else {
+        updateVariables(variables);
       }
     },
-    [emailDocument.variables, updateVariables, selectedNodeId, contentKey, currentContent, updateNode],
+    [emailDocument.variables, createVariableAndInsert, updateVariables, selectedNodeId, contentKey, currentContent],
   );
 
   const groups = useMemo(() => {
@@ -98,8 +106,19 @@ export function PropertiesPanel({ className, registry }: PropertiesPanelProps) {
     return grouped;
   }, [definition?.properties]);
 
+  const handleMetaChange = useCallback(
+    (update: Partial<typeof emailDocument.meta>) => {
+      updateDocumentMeta(update);
+    },
+    [updateDocumentMeta],
+  );
+
   if (!selectedNode || !definition) {
-    return React.createElement(PropertiesPanelEmpty, { className });
+    return React.createElement(PropertiesPanelEmpty, {
+      className,
+      meta: emailDocument.meta,
+      onMetaChange: handleMetaChange,
+    });
   }
 
   const canInsertVariable =

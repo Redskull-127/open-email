@@ -17,7 +17,12 @@ import {
     Hr,
     Head,
     Preview,
+    CodeBlock,
+    CodeInline,
+    Markdown,
+    Font,
 } from "@react-email/components";
+import { xonokai } from "@react-email/code-block";
 
 const componentMap: Record<string, React.ComponentType<any>> = {
     container: Container,
@@ -30,6 +35,10 @@ const componentMap: Record<string, React.ComponentType<any>> = {
     image: Img,
     link: Link,
     hr: Hr,
+    "code-block": CodeBlock,
+    "code-inline": CodeInline,
+    markdown: Markdown,
+    font: Font,
 };
 
 function resolveProps(props: Record<string, unknown>): Record<string, unknown> {
@@ -43,14 +52,19 @@ function resolveProps(props: Record<string, unknown>): Record<string, unknown> {
         "borderRadius",
         "borderColor",
         "borderWidth",
+        "borderStyle",
         "padding",
         "margin",
         "fontFamily",
         "fontSize",
         "fontWeight",
+        "fontStyle",
         "lineHeight",
         "textAlign",
+        "textDecoration",
         "verticalAlign",
+        "width",
+        "height",
     ]);
 
     for (const [key, value] of Object.entries(props)) {
@@ -80,16 +94,24 @@ function resolveProps(props: Record<string, unknown>): Record<string, unknown> {
     return resolved;
 }
 type RenderContext = {
-    variableData?: Record<string, string>;
-    variableDefinitions?: Record<string, { fallback: string }>;
+  variableData?: Record<string, string>;
+  variableDefinitions?: Record<string, { fallback: string }>;
 };
 
 function interpolate(ctx: RenderContext, value: string | undefined): string {
-    if (value == null) return "";
-    return interpolateVariables(value, ctx.variableData, ctx.variableDefinitions);
+  if (value == null) return "";
+  return interpolateVariables(value, ctx.variableData, ctx.variableDefinitions);
 }
 
 function renderNode(node: EmailNode, ctx: RenderContext): React.ReactNode {
+    if (node.type === "html") {
+        const raw = interpolate(ctx, (node.props.content as string | undefined));
+        return React.createElement("div", {
+            key: node.id,
+            dangerouslySetInnerHTML: { __html: raw },
+        });
+    }
+
     if (node.type === "spacer") {
         const resolvedProps = resolveProps(node.props);
         const h = (resolvedProps.height as string) ?? "20px";
@@ -112,7 +134,7 @@ function renderNode(node: EmailNode, ctx: RenderContext): React.ReactNode {
     }
 
     const resolvedProps = resolveProps(node.props);
-    const { content, text, ...restProps } = resolvedProps as any;
+    const { content, text, code, ...restProps } = resolvedProps as any;
 
     if (node.type === "text" || node.type === "heading" || node.type === "link") {
         return React.createElement(
@@ -122,11 +144,83 @@ function renderNode(node: EmailNode, ctx: RenderContext): React.ReactNode {
         );
     }
 
+    if (node.type === "markdown") {
+        const { style, ...markdownProps } = restProps as any;
+        return React.createElement(
+            Component,
+            { 
+                key: node.id, 
+                markdownContainerStyles: style,
+                ...markdownProps 
+            },
+            interpolate(ctx, content as string | undefined) || ""
+        );
+    }
+
     if (node.type === "button") {
         return React.createElement(
             Component,
             { key: node.id, ...restProps },
             interpolate(ctx, text as string | undefined)
+        );
+    }
+
+    if (node.type === "code-block") {
+        const { language, theme, ...codeBlockProps } = resolvedProps as any;
+        return React.createElement(
+            Component,
+            { 
+                key: node.id, 
+                code: interpolate(ctx, code as string | undefined) || "",
+                language: language || "text",
+                theme: theme || xonokai,
+                ...codeBlockProps 
+            }
+        );
+    }
+
+    if (node.type === "code-inline") {
+        return React.createElement(
+            Component,
+            { key: node.id, code: interpolate(ctx, code as string | undefined), ...restProps }
+        );
+    }
+
+    if (node.type === "font") {
+        const { webFontUrl, webFontFormat, ...fontProps } = resolvedProps as any;
+        const webFont = webFontUrl && webFontFormat
+            ? { url: webFontUrl, format: webFontFormat }
+            : undefined;
+        return React.createElement(
+            Component,
+            { key: node.id, ...fontProps, webFont }
+        );
+    }
+
+    if (node.type === "preview") {
+        return React.createElement(
+            Component,
+            { key: node.id },
+            interpolate(ctx, content as string | undefined)
+        );
+    }
+
+    if (node.type === "tailwind") {
+        let config: Record<string, unknown> | undefined;
+        const rawConfig = node.props.config;
+        if (rawConfig && typeof rawConfig === "string") {
+            try {
+                config = JSON.parse(rawConfig);
+            } catch {
+                config = undefined;
+            }
+        } else if (rawConfig && typeof rawConfig === "object") {
+            config = rawConfig as Record<string, unknown>;
+        }
+        return React.createElement(
+            Component,
+            { key: node.id, ...(config ? { config } : {}) },
+            node.children?.map((c) => renderNode(c, ctx))
         );
     }
 
@@ -204,25 +298,46 @@ export function renderToReactEmail(
     };
     const bodyContent = renderNode(document.body, ctx);
 
+    const bodyElement = React.createElement(
+        Body,
+        {
+            style: {
+                backgroundColor: "#f6f9fc",
+                fontFamily:
+                    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Ubuntu, sans-serif',
+                margin: "0",
+                padding: "0",
+            },
+        },
+        bodyContent
+    );
+
+    const fontElements = (document.meta.fonts ?? [])
+        .filter((f) => f.fontFamily)
+        .map((f, i) =>
+            React.createElement(Font as any, {
+                key: `font-${i}`,
+                fontFamily: f.fontFamily,
+                fallbackFontFamily: f.fallbackFontFamily || "sans-serif",
+                ...(f.webFontUrl && f.webFontFormat
+                    ? { webFont: { url: f.webFontUrl, format: f.webFontFormat } }
+                    : {}),
+                ...(f.fontWeight ? { fontWeight: f.fontWeight } : {}),
+                ...(f.fontStyle ? { fontStyle: f.fontStyle } : {}),
+            })
+        );
+
+    // Tailwind CSS is injected via CDN in renderToHTML for the preview, and should
+    // be handled server-side by the consuming app for production email sending.
+    // The React Email Tailwind wrapper is intentionally NOT used here — it injects
+    // its own <style> block with base CSS resets that break the email layout.
     return React.createElement(
         Html,
         { lang: "en", dir: "ltr" },
-        React.createElement(Head, null),
+        React.createElement(Head, null, ...fontElements),
         document.meta.previewText
             ? React.createElement(Preview, null, document.meta.previewText)
             : null,
-        React.createElement(
-            Body,
-            {
-                style: {
-                    backgroundColor: "#f6f9fc",
-                    fontFamily:
-                        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Ubuntu, sans-serif',
-                    margin: "0",
-                    padding: "0",
-                },
-            },
-            bodyContent
-        )
+        bodyElement
     );
 }

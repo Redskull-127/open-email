@@ -8,7 +8,7 @@ export { PropertiesPanelHeader } from "./properties-panel-header";
 export type { PropertiesPanelHeaderProps } from "./properties-panel-header";
 
 export { PropertiesPanelEmpty } from "./properties-panel-empty";
-export type { PropertiesPanelEmptyProps } from "./properties-panel-empty";
+export type { PropertiesPanelEmptyProps, DocumentMeta } from "./properties-panel-empty";
 
 export { PropertiesGroup } from "./properties-group";
 export type { PropertiesGroupProps } from "./properties-group";

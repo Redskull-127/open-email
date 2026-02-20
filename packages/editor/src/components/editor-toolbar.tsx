@@ -103,7 +103,7 @@ export function EditorToolbar({
               title: `${label} mode`,
             },
             React.createElement(Icon, { size: 14 }),
-            ` ${label}`,
+            label,
           );
         }),
       ),

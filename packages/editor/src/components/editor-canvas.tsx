@@ -110,12 +110,14 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
 
     const renderContent = (): React.ReactNode => {
         const style = (node.props.style ?? {}) as React.CSSProperties;
+        const nodeClassName = (node.props.className as string) || undefined;
 
         switch (node.type) {
             case "container":
                 return React.createElement(
                     "div",
                     {
+                        className: nodeClassName,
                         style: {
                             maxWidth: (node.props.maxWidth as string) ?? "600px",
                             margin: "0 auto",
@@ -129,7 +131,7 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
             case "section":
                 return React.createElement(
                     "div",
-                    { style: { padding: "10px 0", ...style } },
+                    { className: nodeClassName, style: { padding: "10px 0", ...style } },
                     renderChildren()
                 );
 
@@ -137,11 +139,8 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
                 return React.createElement(
                     "div",
                     {
-                        style: {
-                            display: "flex",
-                            width: "100%",
-                            ...style,
-                        },
+                        className: nodeClassName,
+                        style: { display: "flex", width: "100%", ...style },
                     },
                     renderChildren()
                 );
@@ -155,6 +154,7 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
                 return React.createElement(
                     "div",
                     {
+                        className: nodeClassName,
                         style: {
                             flex: 1,
                             padding: "8px",
@@ -172,6 +172,7 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
                 return React.createElement(
                     "p",
                     {
+                        className: nodeClassName,
                         style: {
                             margin: "0",
                             padding: "4px 0",
@@ -187,16 +188,13 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
             case "heading": {
                 const Tag = (node.props.as as string) ?? "h2";
                 const sizeMap: Record<string, string> = {
-                    h1: "32px",
-                    h2: "24px",
-                    h3: "20px",
-                    h4: "18px",
-                    h5: "16px",
-                    h6: "14px",
+                    h1: "32px", h2: "24px", h3: "20px",
+                    h4: "18px", h5: "16px", h6: "14px",
                 };
                 return React.createElement(
                     Tag,
                     {
+                        className: nodeClassName,
                         style: {
                             margin: "0",
                             padding: "4px 0",
@@ -217,11 +215,11 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
                     React.createElement(
                         "a",
                         {
+                            className: nodeClassName,
                             style: {
                                 display: "inline-block",
                                 padding: (node.props.padding as string) ?? "12px 24px",
-                                backgroundColor:
-                                    (node.props.backgroundColor as string) ?? "#5046e5",
+                                backgroundColor: (node.props.backgroundColor as string) ?? "#5046e5",
                                 color: (node.props.color as string) ?? "#ffffff",
                                 borderRadius: (node.props.borderRadius as string) ?? "6px",
                                 textDecoration: "none",
@@ -239,15 +237,14 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
 
             case "image":
                 return React.createElement("img", {
-                    src:
-                        (node.props.src as string) ??
-                        "https://placehold.co/600x200/e2e8f0/64748b?text=Image",
+                    className: nodeClassName,
+                    src: (node.props.src as string) ?? "https://placehold.co/600x200/e2e8f0/64748b?text=Image",
                     alt: (node.props.alt as string) ?? "",
                     width: (node.props.width as number) ?? undefined,
                     height: (node.props.height as number) ?? undefined,
                     style: {
                         maxWidth: "100%",
-                        height: (node.props.height ? `${node.props.height}px` : "auto"),
+                        height: node.props.height ? `${node.props.height}px` : "auto",
                         display: "block",
                         ...style,
                     },
@@ -257,6 +254,7 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
                 return React.createElement(
                     "a",
                     {
+                        className: nodeClassName,
                         href: "#",
                         onClick: (e: React.MouseEvent) => e.preventDefault(),
                         style: {
@@ -271,10 +269,10 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
 
             case "hr":
                 return React.createElement("hr", {
+                    className: nodeClassName,
                     style: {
                         border: "none",
-                        borderTop: `${(node.props.borderWidth as string) ?? "1px"} solid ${(node.props.borderColor as string) ?? "#e2e8f0"
-                            }`,
+                        borderTop: `${(node.props.borderWidth as string) ?? "1px"} solid ${(node.props.borderColor as string) ?? "#e2e8f0"}`,
                         margin: "16px 0",
                         ...style,
                     },
@@ -282,11 +280,211 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
 
             case "spacer":
                 return React.createElement("div", {
-                    style: {
-                        height: (node.props.height as string) ?? "20px",
-                        ...style,
-                    },
+                    className: nodeClassName,
+                    style: { height: (node.props.height as string) ?? "20px", ...style },
                 });
+
+            case "code-inline": {
+                const code = (node.props.code as string) ?? "";
+                return React.createElement(
+                    "code",
+                    {
+                        className: nodeClassName,
+                        style: {
+                            backgroundColor: (style.backgroundColor as string) ?? "#f3f4f6",
+                            color: (style.color as string) ?? "#111827",
+                            fontSize: (style.fontSize as string) ?? "14px",
+                            fontFamily: (style.fontFamily as string) ?? "'Courier New', monospace",
+                            padding: (style.padding as string) ?? "2px 4px",
+                            borderRadius: (style.borderRadius as string) ?? "3px",
+                            display: "inline-block",
+                            ...style,
+                        },
+                    },
+                    code
+                );
+            }
+
+            case "code-block": {
+                const code = (node.props.code as string) ?? "";
+                return React.createElement(
+                    "pre",
+                    {
+                        className: nodeClassName,
+                        style: {
+                            backgroundColor: (style.backgroundColor as string) ?? "#1f2937",
+                            color: (style.color as string) ?? "#f9fafb",
+                            fontSize: (style.fontSize as string) ?? "14px",
+                            fontFamily: (style.fontFamily as string) ?? "'Courier New', monospace",
+                            padding: (style.padding as string) ?? "16px",
+                            borderRadius: (style.borderRadius as string) ?? "4px",
+                            margin: "8px 0",
+                            overflow: "auto",
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-word",
+                            ...style,
+                        },
+                    },
+                    React.createElement("code", { style: { display: "block", fontFamily: "inherit" } }, code)
+                );
+            }
+
+            case "markdown": {
+                const content = (node.props.content as string) ?? "";
+                const textColor = (style.color as string) ?? "#374151";
+                const fontSize = (style.fontSize as string) ?? "16px";
+                const fontFamily = (style.fontFamily as string) ?? "Arial, sans-serif";
+                const lineHeight = (style.lineHeight as string) ?? "1.6";
+
+                // Simple markdown rendering for visual preview
+                // Convert basic markdown to HTML-like display
+                const renderMarkdown = (md: string): React.ReactNode => {
+                    if (!md) return null;
+                    
+                    const lines = md.split("\n");
+                    const elements: React.ReactNode[] = [];
+                    
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i];
+                        if (!line.trim() && i < lines.length - 1) {
+                            elements.push(React.createElement("br", { key: `br-${i}` }));
+                            continue;
+                        }
+                        
+                        // Headers
+                        if (line.startsWith("# ")) {
+                            elements.push(
+                                React.createElement(
+                                    "h1",
+                                    {
+                                        key: `h1-${i}`,
+                                        style: {
+                                            fontSize: "32px",
+                                            fontWeight: "bold",
+                                            margin: "16px 0 8px 0",
+                                            color: textColor,
+                                        },
+                                    },
+                                    line.slice(2)
+                                )
+                            );
+                        } else if (line.startsWith("## ")) {
+                            elements.push(
+                                React.createElement(
+                                    "h2",
+                                    {
+                                        key: `h2-${i}`,
+                                        style: {
+                                            fontSize: "24px",
+                                            fontWeight: "bold",
+                                            margin: "14px 0 6px 0",
+                                            color: textColor,
+                                        },
+                                    },
+                                    line.slice(3)
+                                )
+                            );
+                        } else if (line.startsWith("### ")) {
+                            elements.push(
+                                React.createElement(
+                                    "h3",
+                                    {
+                                        key: `h3-${i}`,
+                                        style: {
+                                            fontSize: "20px",
+                                            fontWeight: "bold",
+                                            margin: "12px 0 4px 0",
+                                            color: textColor,
+                                        },
+                                    },
+                                    line.slice(4)
+                                )
+                            );
+                        } else if (line.trim()) {
+                            // Bold and italic
+                            let processedLine = line;
+                            processedLine = processedLine.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+                            processedLine = processedLine.replace(/\*(.+?)\*/g, "<em>$1</em>");
+                            processedLine = processedLine.replace(/`(.+?)`/g, "<code style='background: #f3f4f6; padding: 2px 4px; border-radius: 3px; font-family: monospace;'>$1</code>");
+                            
+                            elements.push(
+                                React.createElement(
+                                    "p",
+                                    {
+                                        key: `p-${i}`,
+                                        style: {
+                                            margin: "8px 0",
+                                            color: textColor,
+                                        },
+                                        dangerouslySetInnerHTML: { __html: processedLine },
+                                    }
+                                )
+                            );
+                        }
+                    }
+                    
+                    return elements.length > 0 ? elements : null;
+                };
+
+                return React.createElement(
+                    "div",
+                    {
+                        className: nodeClassName,
+                        style: {
+                            fontSize,
+                            fontFamily,
+                            lineHeight,
+                            color: textColor,
+                            padding: "8px 0",
+                            ...style,
+                        },
+                    },
+                    renderMarkdown(content)
+                );
+            }
+
+            case "html": {
+                const html = (node.props.content as string) ?? "";
+                return React.createElement("div", {
+                    className: nodeClassName,
+                    style: { padding: "4px 0", ...style },
+                    dangerouslySetInnerHTML: { __html: html },
+                });
+            }
+
+            case "tailwind":
+                return React.createElement(
+                    "div",
+                    {
+                        className: nodeClassName,
+                        style: {
+                            border: "1px dashed #38bdf8",
+                            borderRadius: "4px",
+                            padding: "4px",
+                            ...style,
+                        },
+                    },
+                    renderChildren()
+                );
+
+            case "font":
+            case "preview":
+                return React.createElement(
+                    "div",
+                    {
+                        style: {
+                            padding: "6px 10px",
+                            background: "#f8fafc",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            color: "#64748b",
+                            fontFamily: "monospace",
+                        },
+                    },
+                    node.type === "font"
+                        ? `Font: ${(node.props.fontFamily as string) ?? "Unnamed"}`
+                        : `Preview: ${(node.props.content as string) ?? "…"}`
+                );
 
             default:
                 return React.createElement(
@@ -317,23 +515,79 @@ function CanvasNode({ node, parentId, index }: CanvasNodeProps): React.ReactElem
 
 function getEmptyLabel(type: string): string {
     switch (type) {
-        case "container":
-            return "+ Add component";
-        case "section":
-            return "+ Add to section";
-        case "row":
-            return "+ Add column";
-        case "column":
-            return "+ Add content";
-        default:
-            return "+ Drop here";
+        case "container": return "+ Add component";
+        case "section": return "+ Add to section";
+        case "row": return "+ Add column";
+        case "column": return "+ Add content";
+        case "tailwind": return "+ Add component (Tailwind enabled)";
+        default: return "+ Drop here";
     }
 }
 
 function VisualCanvas() {
     const { document, selectNode } = useEditor();
+    const tailwindEnabled = document.meta.tailwind?.enabled ?? false;
+    const tailwindConfig = document.meta.tailwind?.config;
 
-    const handleCanvasClick = useCallback(() => {
+    // Re-scan when the document body changes so newly-added or updated
+    // components with Tailwind classes get styled without a manual toggle.
+    useEffect(() => {
+        if (tailwindEnabled) {
+            (window as any).tailwind?.scan?.();
+        }
+    }, [document.body, tailwindEnabled]);
+
+    useEffect(() => {
+        const SCRIPT_ID = "oe-tailwind-cdn";
+
+        if (!tailwindEnabled) {
+            window.document.getElementById(SCRIPT_ID)?.remove();
+            return;
+        }
+
+        // Build merged config with preflight disabled so Tailwind doesn't reset
+        // the editor's own CSS while still applying utility classes.
+        let mergedConfig: Record<string, unknown> = { corePlugins: { preflight: false } };
+        if (tailwindConfig) {
+            try {
+                const parsed = JSON.parse(tailwindConfig) as Record<string, unknown>;
+                mergedConfig = {
+                    ...parsed,
+                    corePlugins: { ...(parsed.corePlugins as object ?? {}), preflight: false },
+                };
+            } catch { /* ignore malformed JSON */ }
+        }
+
+        if (!window.document.getElementById(SCRIPT_ID)) {
+            // CDN defines window.tailwind when it loads (overwrites anything
+            // set before), so we apply config in onload after it's ready.
+            const script = window.document.createElement("script");
+            script.id = SCRIPT_ID;
+            script.src = "https://cdn.tailwindcss.com";
+            script.onload = () => {
+                (window as any).tailwind.config = mergedConfig;
+                (window as any).tailwind?.scan?.();
+            };
+            window.document.head.appendChild(script);
+        } else if ((window as any).tailwind) {
+            // CDN already loaded — update config and force a fresh scan.
+            (window as any).tailwind.config = mergedConfig;
+            (window as any).tailwind?.scan?.();
+        } else {
+            // Script tag exists but CDN hasn't finished loading yet — attach
+            // another onload listener to apply the config once it's ready.
+            const existing = window.document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
+            if (existing) {
+                existing.addEventListener("load", () => {
+                    (window as any).tailwind.config = mergedConfig;
+                    (window as any).tailwind?.scan?.();
+                }, { once: true });
+            }
+        }
+    }, [tailwindEnabled, tailwindConfig]);
+
+    const handleCanvasClick = useCallback((e: React.MouseEvent) => {
+        if ((e.target as HTMLElement).closest("a")) e.preventDefault();
         selectNode(null);
     }, [selectNode]);
 
@@ -439,7 +693,7 @@ function PreviewCanvas({ variableData }: PreviewCanvasProps) {
             ref: iframeRef,
             className: "oe-preview-iframe",
             title: "Email Preview",
-            sandbox: "allow-same-origin",
+            sandbox: "allow-same-origin allow-scripts",
         })
     );
 }

@@ -12,6 +12,7 @@ export type { EditorCanvasProps } from "./components/editor-canvas";
 
 export { PropertiesPanel } from "./components/properties-panel";
 export type { PropertiesPanelProps } from "./components/properties-panel";
+export type { DocumentMeta } from "./components/properties-panel";
 
 export { VariableManager } from "./components/variable-manager";
 export type { VariableManagerProps } from "./components/variable-manager";
@@ -54,6 +55,8 @@ export { renderToHTML, renderToPlainText } from "./renderer/html-renderer";
 export { interpolateVariables, hasVariables, extractVariableNames } from "./utils/variable-interpolation";
 export type { VariableDefinitions } from "./utils/variable-interpolation";
 export { exportToJSON, importFromJSON } from "./renderer/json-renderer";
+export { getAISchema } from "./utils/ai-schema";
+export type { AIDocumentSchema, AIComponentSchema, AIPropertySchema } from "./utils/ai-schema";
 
 export {
     defaultRegistry,
@@ -68,6 +71,7 @@ export type {
     EmailNodeType,
     EmailNode,
     EmailDocument,
+    FontConfig,
     VariableDefinition,
     EditorState,
     EditorAction,

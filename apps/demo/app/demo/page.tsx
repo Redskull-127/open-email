@@ -29,7 +29,6 @@ export default function HomePage() {
       subject.trim(),
       pendingHTML,
     );
-    console.log(data, error);
 
     setShowDialog(false);
     setEmailAddress("");

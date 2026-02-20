@@ -4,39 +4,29 @@ import * as _dnd_kit_core from '@dnd-kit/core';
 import * as _dnd_kit_utilities from '@dnd-kit/utilities';
 import * as _dnd_kit_core_dist_hooks_utilities from '@dnd-kit/core/dist/hooks/utilities';
 
-/** Unique identifier for document nodes */
 type NodeId = string;
 /** Supported email component types */
-type EmailNodeType = "container" | "section" | "row" | "column" | "text" | "heading" | "button" | "image" | "link" | "hr" | "spacer" | "code-block" | "code-inline" | "markdown" | "preview" | "font";
-/** Base props shared across all nodes */
+type EmailNodeType = "container" | "section" | "row" | "column" | "text" | "heading" | "button" | "image" | "link" | "hr" | "spacer" | "code-block" | "code-inline" | "markdown" | "html" | "preview" | "font" | "tailwind";
 interface BaseNodeProps {
     style?: React.CSSProperties;
     className?: string;
 }
-/** Container node props */
 interface ContainerProps extends BaseNodeProps {
-    /** Maximum width, e.g. "600px" */
     maxWidth?: string;
 }
-/** Section node props */
 interface SectionProps extends BaseNodeProps {
 }
-/** Row node props */
 interface RowProps extends BaseNodeProps {
 }
-/** Column node props */
 interface ColumnProps extends BaseNodeProps {
 }
-/** Text node props */
 interface TextProps extends BaseNodeProps {
     content?: string;
 }
-/** Heading node props */
 interface HeadingProps extends BaseNodeProps {
     content?: string;
     as?: "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
 }
-/** Button node props */
 interface ButtonProps extends BaseNodeProps {
     text?: string;
     href?: string;
@@ -45,73 +35,64 @@ interface ButtonProps extends BaseNodeProps {
     borderRadius?: string;
     padding?: string;
 }
-/** Image node props */
 interface ImageProps extends BaseNodeProps {
     src?: string;
     alt?: string;
     width?: number;
     height?: number;
 }
-/** Link node props */
 interface LinkProps extends BaseNodeProps {
     href?: string;
     content?: string;
     color?: string;
 }
-/** Hr (divider) node props */
 interface HrProps extends BaseNodeProps {
     borderColor?: string;
     borderWidth?: string;
 }
-/** Spacer node props */
 interface SpacerProps extends BaseNodeProps {
     height?: string;
 }
-/** Union of all node prop types */
 type EmailNodeProps = ContainerProps | SectionProps | RowProps | ColumnProps | TextProps | HeadingProps | ButtonProps | ImageProps | LinkProps | HrProps | SpacerProps;
-/** A single node in the email document tree */
 interface EmailNode {
-    /** Unique identifier */
     id: NodeId;
-    /** Component type */
     type: EmailNodeType;
-    /** Component-specific props */
     props: Record<string, unknown>;
-    /** Child nodes (for layout components) */
     children?: EmailNode[];
 }
-/** Variable definition with fallback used when no data is provided at render time */
 interface VariableDefinition {
     fallback: string;
 }
-/** Root document representing a complete email template */
+interface FontConfig {
+    fontFamily: string;
+    fallbackFontFamily?: string;
+    webFontUrl?: string;
+    webFontFormat?: "woff2" | "woff" | "ttf" | "otf";
+    fontWeight?: number | string;
+    fontStyle?: "normal" | "italic" | "oblique";
+}
 interface EmailDocument {
-    /** Document version for schema migrations */
     version: 1;
-    /** Template metadata */
     meta: {
         title: string;
         description?: string;
         previewText?: string;
-        /** Subject line */
         subject?: string;
+        fonts?: FontConfig[];
+        tailwind?: {
+            enabled: boolean;
+            config?: string;
+        };
     };
-    /** Root body node containing the email tree */
     body: EmailNode;
-    /** Document-level variables: unique key → definition with fallback. Referenced in content as {{variableName}} */
+    /** Variables referenced in content as {{variableName}} */
     variables?: Record<string, VariableDefinition>;
 }
-/** Editor display mode */
 type EditorMode = "visual" | "code" | "preview";
-/** Editor state */
 interface EditorState {
-    /** The current document being edited */
     document: EmailDocument;
-    /** ID of the currently selected node */
     selectedNodeId: NodeId | null;
-    /** Current display mode */
     mode: EditorMode;
-    /** Whether the document has unsaved changes */
     isDirty: boolean;
 }
 /** Editor action types */
@@ -148,73 +129,55 @@ type EditorAction = {
     type: "UPDATE_VARIABLES";
     payload: Record<string, VariableDefinition>;
 } | {
+    type: "UPDATE_DOCUMENT_META";
+    payload: Partial<EmailDocument["meta"]>;
+} | {
+    type: "CREATE_VARIABLE_AND_UPDATE_NODE";
+    payload: {
+        variables: Record<string, VariableDefinition>;
+        nodeId: NodeId;
+        contentKey: string;
+        newContent: string;
+    };
+} | {
     type: "SET_MODE";
     payload: EditorMode;
 } | {
     type: "MARK_CLEAN";
 };
-/** Schema for a single editable property */
 interface PropertySchema {
-    /** Property key in the node props */
     key: string;
-    /** Display label */
     label: string;
-    /** Input type for the property editor */
     type: "text" | "textarea" | "number" | "color" | "select" | "toggle" | "url" | "spacing";
-    /** Default value */
     defaultValue?: unknown;
-    /** Options for select type */
     options?: {
         label: string;
         value: string;
     }[];
-    /** Property group for UI organization */
     group?: "content" | "layout" | "style";
-    /** Placeholder text */
     placeholder?: string;
 }
-/** Definition of a component in the registry */
 interface ComponentDefinition {
-    /** Unique type identifier matching EmailNodeType */
     type: EmailNodeType;
-    /** Human-readable name */
     label: string;
-    /** Icon name or SVG string */
     icon: string;
-    /** Category for grouping */
     category: "layout" | "content" | "utility";
-    /** Description shown in component palette */
     description: string;
-    /** Default props when the component is added */
     defaultProps: Record<string, unknown>;
-    /** Whether this component can contain children */
     acceptsChildren: boolean;
-    /** Allowed child types (empty = any) */
     allowedChildTypes?: EmailNodeType[];
-    /** Editable property definitions */
     properties: PropertySchema[];
 }
-/** Component registry mapping types to definitions */
 type ComponentRegistry = Map<EmailNodeType, ComponentDefinition>;
-/** Configuration for the EmailEditor component */
 interface EditorConfig {
-    /** Custom component registry (uses default if not provided) */
     registry?: ComponentRegistry;
-    /** Available modes (defaults to all three) */
     availableModes?: EditorMode[];
-    /** Whether to show the sidebar */
     showSidebar?: boolean;
-    /** Whether to show the toolbar */
     showToolbar?: boolean;
-    /** Whether to show the properties panel */
     showProperties?: boolean;
-    /** Whether to show the JSON export button */
     showExportJSON?: boolean;
-    /** Whether to show the HTML export button */
     showExportHTML?: boolean;
-    /** Theme: "light" | "dark" | "system" */
     theme?: "light" | "dark" | "system";
-    /** Custom class name for the root editor element */
     className?: string;
 }
 
@@ -310,8 +273,21 @@ interface EditorCanvasProps {
 }
 declare function EditorCanvas({ className, variableData }: EditorCanvasProps): React__default.FunctionComponentElement<{}> | React__default.FunctionComponentElement<PreviewCanvasProps>;
 
+interface DocumentMeta {
+    title: string;
+    description?: string;
+    previewText?: string;
+    subject?: string;
+    fonts?: FontConfig[];
+    tailwind?: {
+        enabled: boolean;
+        config?: string;
+    };
+}
 interface PropertiesPanelEmptyProps {
     className?: string;
+    meta?: DocumentMeta;
+    onMetaChange?: (update: Partial<DocumentMeta>) => void;
 }
 
 interface PropertiesPanelProps {
@@ -392,9 +368,7 @@ interface EditorContextValue {
     dispatch: React__default.Dispatch<EditorAction>;
 }
 interface EditorProviderProps {
-    /** Initial document to load */
     initialDocument?: EmailDocument;
-    /** Callback when document changes */
     onChange?: (document: EmailDocument) => void;
     children?: ReactNode;
 }
@@ -410,6 +384,10 @@ declare function useEditor(): {
     updateVariables: (variables: Record<string, {
         fallback: string;
     }>) => void;
+    updateDocumentMeta: (meta: Partial<EmailDocument["meta"]>) => void;
+    createVariableAndInsert: (variables: Record<string, {
+        fallback: string;
+    }>, nodeId: NodeId, contentKey: string, newContent: string) => void;
     setMode: (mode: EditorMode) => void;
     markClean: () => void;
     document: EmailDocument;
@@ -459,15 +437,51 @@ declare function exportToJSON(document: EmailDocument, pretty?: boolean): string
  */
 declare function importFromJSON(json: string): EmailDocument;
 
-/** Create a new component registry from an array of definitions */
+interface AIPropertySchema {
+    key: string;
+    label: string;
+    type: string;
+    defaultValue?: unknown;
+    placeholder?: string;
+    options?: Array<{
+        value: string;
+        label: string;
+    }>;
+}
+interface AIComponentSchema {
+    type: string;
+    label: string;
+    description: string;
+    category: string;
+    acceptsChildren: boolean;
+    defaultProps: Record<string, unknown>;
+    properties: AIPropertySchema[];
+}
+interface AIDocumentSchema {
+    components: AIComponentSchema[];
+    documentMeta: {
+        description: string;
+        fields: AIPropertySchema[];
+    };
+}
+/**
+ * Returns a fully self-describing schema of every available component and
+ * document-level field. Feed this into an LLM system prompt so it can produce
+ * valid EmailDocument JSON without hallucinating component types or prop names.
+ *
+ * @example
+ * // In a server action / API route
+ * import { getAISchema } from "@open-email/editor/server";
+ *
+ * const schema = getAISchema();
+ * const systemPrompt = `You are an email builder. Use this schema:\n${JSON.stringify(schema)}`;
+ */
+declare function getAISchema(registry?: ComponentRegistry): AIDocumentSchema;
+
 declare function createRegistry(definitions: ComponentDefinition[]): ComponentRegistry;
-/** Merge a custom registry with the default one */
 declare function mergeRegistries(base: ComponentRegistry, overrides: ComponentDefinition[]): ComponentRegistry;
-/** Default component registry with all built-in components */
 declare const defaultRegistry: ComponentRegistry;
-/** Get all component definitions grouped by category */
 declare function getComponentsByCategory(registry: ComponentRegistry): Record<string, ComponentDefinition[]>;
-/** Get a single component definition by type */
 declare function getComponentDef(registry: ComponentRegistry, type: EmailNodeType): ComponentDefinition | undefined;
 
 /** Data attached to a sidebar draggable */
@@ -569,4 +583,4 @@ declare function useNodeDroppable(nodeId: string, parentId: string, index: numbe
     setNodeRef: (element: HTMLElement | null) => void;
 };
 
-export { type BaseNodeProps, type ButtonProps, type ColumnProps, ComponentCard, type ComponentCardProps, type ComponentDefinition, type ComponentRegistry, type ContainerProps, type DragData, DragDropProvider, type DropZoneData, type EditorAction, EditorCanvas, type EditorCanvasProps, type EditorConfig, type EditorMode, EditorProvider, type EditorProviderProps, EditorSidebar, type EditorSidebarProps, type EditorState, EditorToolbar, type EditorToolbarProps, type EmailDocument, EmailEditor, type EmailEditorProps, type EmailNode, type EmailNodeProps, type EmailNodeType, type HeadingProps, type HrProps, Icons, type ImageProps, LayerTree, type LayerTreeProps, type LinkProps, type NodeDragData, type NodeId, PropertiesPanel, type PropertiesPanelProps, type PropertySchema, type RowProps, type SectionProps, type SidebarDragData, type SpacerProps, type TextProps, type VariableDefinition, type VariableDefinitions, VariableManager, type VariableManagerProps, addNode, cloneNode, createEmptyDocument, createNode, createRegistry, defaultRegistry, exportToJSON, extractVariableNames, findNode, findParent, flattenTree, generateId, getComponentDef, getComponentsByCategory, getIcon, getNodePath, hasVariables, importFromJSON, interpolateVariables, mergeRegistries, moveNode, removeNode, renderToHTML, renderToPlainText, renderToReactEmail, updateNode, useContainerDropZone, useDragDrop, useDropZone, useEditor, useNode, useNodeDraggable, useNodeDroppable, useSelectedNode, useSidebarDraggable, useVariables, validateDocument };
+export { type AIComponentSchema, type AIDocumentSchema, type AIPropertySchema, type BaseNodeProps, type ButtonProps, type ColumnProps, ComponentCard, type ComponentCardProps, type ComponentDefinition, type ComponentRegistry, type ContainerProps, type DocumentMeta, type DragData, DragDropProvider, type DropZoneData, type EditorAction, EditorCanvas, type EditorCanvasProps, type EditorConfig, type EditorMode, EditorProvider, type EditorProviderProps, EditorSidebar, type EditorSidebarProps, type EditorState, EditorToolbar, type EditorToolbarProps, type EmailDocument, EmailEditor, type EmailEditorProps, type EmailNode, type EmailNodeProps, type EmailNodeType, type FontConfig, type HeadingProps, type HrProps, Icons, type ImageProps, LayerTree, type LayerTreeProps, type LinkProps, type NodeDragData, type NodeId, PropertiesPanel, type PropertiesPanelProps, type PropertySchema, type RowProps, type SectionProps, type SidebarDragData, type SpacerProps, type TextProps, type VariableDefinition, type VariableDefinitions, VariableManager, type VariableManagerProps, addNode, cloneNode, createEmptyDocument, createNode, createRegistry, defaultRegistry, exportToJSON, extractVariableNames, findNode, findParent, flattenTree, generateId, getAISchema, getComponentDef, getComponentsByCategory, getIcon, getNodePath, hasVariables, importFromJSON, interpolateVariables, mergeRegistries, moveNode, removeNode, renderToHTML, renderToPlainText, renderToReactEmail, updateNode, useContainerDropZone, useDragDrop, useDropZone, useEditor, useNode, useNodeDraggable, useNodeDroppable, useSelectedNode, useSidebarDraggable, useVariables, validateDocument };

@@ -1,10 +1,5 @@
-// ─── Component Registry ──────────────────────────────────────────────────────
-// Defines all available email components with their metadata, default props,
-// and property schemas for the editor UI.
-
 import type { ComponentDefinition, ComponentRegistry, EmailNodeType } from "../types";
 
-/** Create a new component registry from an array of definitions */
 export function createRegistry(definitions: ComponentDefinition[]): ComponentRegistry {
   const registry = new Map<EmailNodeType, ComponentDefinition>();
   for (const def of definitions) {
@@ -13,7 +8,6 @@ export function createRegistry(definitions: ComponentDefinition[]): ComponentReg
   return registry;
 }
 
-/** Merge a custom registry with the default one */
 export function mergeRegistries(
   base: ComponentRegistry,
   overrides: ComponentDefinition[]
@@ -25,9 +19,7 @@ export function mergeRegistries(
   return merged;
 }
 
-/** Default component definitions for React Email components */
 const defaultDefinitions: ComponentDefinition[] = [
-  // ─── Layout Components ─────────────────────────────────────────────
   {
     type: "container",
     label: "Container",
@@ -58,6 +50,33 @@ const defaultDefinitions: ComponentDefinition[] = [
         group: "layout",
         placeholder: "e.g. 20px",
       },
+      {
+        key: "style.margin",
+        label: "Margin",
+        type: "text",
+        group: "layout",
+        placeholder: "e.g. 0 auto",
+      },
+      {
+        key: "style.borderWidth",
+        label: "Border Width",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. 1px",
+      },
+      {
+        key: "style.borderColor",
+        label: "Border Color",
+        type: "color",
+        group: "style",
+      },
+      {
+        key: "style.borderRadius",
+        label: "Border Radius",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. 4px",
+      },
     ],
   },
   {
@@ -81,6 +100,40 @@ const defaultDefinitions: ComponentDefinition[] = [
         type: "text",
         group: "layout",
         placeholder: "e.g. 20px 0",
+      },
+      {
+        key: "style.margin",
+        label: "Margin",
+        type: "text",
+        group: "layout",
+        placeholder: "e.g. 0",
+      },
+      {
+        key: "style.borderWidth",
+        label: "Border Width",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. 1px",
+      },
+      {
+        key: "style.borderColor",
+        label: "Border Color",
+        type: "color",
+        group: "style",
+      },
+      {
+        key: "style.borderRadius",
+        label: "Border Radius",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. 4px",
+      },
+      {
+        key: "style.width",
+        label: "Width",
+        type: "text",
+        group: "layout",
+        placeholder: "e.g. 100%",
       },
     ],
   },
@@ -207,7 +260,6 @@ const defaultDefinitions: ComponentDefinition[] = [
     ],
   },
 
-  // ─── Content Components ────────────────────────────────────────────
   {
     type: "text",
     label: "Text",
@@ -393,6 +445,80 @@ const defaultDefinitions: ComponentDefinition[] = [
         group: "style",
         placeholder: "e.g. 12px 24px",
       },
+      {
+        key: "style.fontSize",
+        label: "Font Size",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. 16px",
+      },
+      {
+        key: "style.fontWeight",
+        label: "Font Weight",
+        type: "select",
+        options: [
+          { label: "Normal", value: "normal" },
+          { label: "Medium", value: "500" },
+          { label: "Semi Bold", value: "600" },
+          { label: "Bold", value: "bold" },
+        ],
+        group: "style",
+      },
+      {
+        key: "style.fontFamily",
+        label: "Font Family",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. Arial, sans-serif",
+      },
+      {
+        key: "style.borderWidth",
+        label: "Border Width",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. 1px",
+      },
+      {
+        key: "style.borderColor",
+        label: "Border Color",
+        type: "color",
+        group: "style",
+      },
+      {
+        key: "style.borderStyle",
+        label: "Border Style",
+        type: "select",
+        options: [
+          { label: "Solid", value: "solid" },
+          { label: "Dashed", value: "dashed" },
+          { label: "Dotted", value: "dotted" },
+          { label: "None", value: "none" },
+        ],
+        group: "style",
+      },
+      {
+        key: "style.textAlign",
+        label: "Alignment",
+        type: "select",
+        options: [
+          { label: "Left", value: "left" },
+          { label: "Center", value: "center" },
+          { label: "Right", value: "right" },
+        ],
+        group: "style",
+      },
+      {
+        key: "style.textDecoration",
+        label: "Text Decoration",
+        type: "select",
+        options: [
+          { label: "None", value: "none" },
+          { label: "Underline", value: "underline" },
+          { label: "Overline", value: "overline" },
+          { label: "Line Through", value: "line-through" },
+        ],
+        group: "style",
+      },
     ],
   },
   {
@@ -434,6 +560,40 @@ const defaultDefinitions: ComponentDefinition[] = [
         type: "number",
         group: "layout",
       },
+      {
+        key: "style.borderRadius",
+        label: "Border Radius",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. 4px",
+      },
+      {
+        key: "style.borderWidth",
+        label: "Border Width",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. 1px",
+      },
+      {
+        key: "style.borderColor",
+        label: "Border Color",
+        type: "color",
+        group: "style",
+      },
+      {
+        key: "style.padding",
+        label: "Padding",
+        type: "text",
+        group: "layout",
+        placeholder: "e.g. 10px",
+      },
+      {
+        key: "style.margin",
+        label: "Margin",
+        type: "text",
+        group: "layout",
+        placeholder: "e.g. 10px",
+      },
     ],
   },
   {
@@ -470,10 +630,58 @@ const defaultDefinitions: ComponentDefinition[] = [
         defaultValue: "#5046e5",
         group: "style",
       },
+      {
+        key: "style.fontSize",
+        label: "Font Size",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. 16px",
+      },
+      {
+        key: "style.fontWeight",
+        label: "Font Weight",
+        type: "select",
+        options: [
+          { label: "Normal", value: "normal" },
+          { label: "Medium", value: "500" },
+          { label: "Semi Bold", value: "600" },
+          { label: "Bold", value: "bold" },
+        ],
+        group: "style",
+      },
+      {
+        key: "style.fontFamily",
+        label: "Font Family",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. Arial, sans-serif",
+      },
+      {
+        key: "style.textDecoration",
+        label: "Text Decoration",
+        type: "select",
+        options: [
+          { label: "None", value: "none" },
+          { label: "Underline", value: "underline" },
+          { label: "Overline", value: "overline" },
+          { label: "Line Through", value: "line-through" },
+        ],
+        group: "style",
+      },
+      {
+        key: "style.textAlign",
+        label: "Alignment",
+        type: "select",
+        options: [
+          { label: "Left", value: "left" },
+          { label: "Center", value: "center" },
+          { label: "Right", value: "right" },
+        ],
+        group: "style",
+      },
     ],
   },
 
-  // ─── Utility Components ────────────────────────────────────────────
   {
     type: "hr",
     label: "Divider",
@@ -522,12 +730,234 @@ const defaultDefinitions: ComponentDefinition[] = [
       },
     ],
   },
+  {
+    type: "code-block",
+    label: "Code Block",
+    icon: "code",
+    category: "content",
+    description: "Code block with syntax highlighting",
+    defaultProps: {
+      code: "console.log('Hello, World!');",
+      language: "javascript",
+    },
+    acceptsChildren: false,
+    properties: [
+      {
+        key: "code",
+        label: "Code",
+        type: "textarea",
+        defaultValue: "console.log('Hello, World!');",
+        group: "content",
+        placeholder: "Enter your code...",
+      },
+      {
+        key: "language",
+        label: "Language",
+        type: "select",
+        defaultValue: "javascript",
+        options: [
+          { label: "JavaScript", value: "javascript" },
+          { label: "TypeScript", value: "typescript" },
+          { label: "HTML", value: "html" },
+          { label: "CSS", value: "css" },
+          { label: "JSON", value: "json" },
+          { label: "Python", value: "python" },
+          { label: "Bash", value: "bash" },
+          { label: "Plain Text", value: "text" },
+        ],
+        group: "content",
+      },
+      {
+        key: "style.backgroundColor",
+        label: "Background",
+        type: "color",
+        group: "style",
+      },
+      {
+        key: "style.color",
+        label: "Text Color",
+        type: "color",
+        group: "style",
+      },
+      {
+        key: "style.fontFamily",
+        label: "Font Family",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. 'Courier New', monospace",
+      },
+      {
+        key: "style.fontSize",
+        label: "Font Size",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. 14px",
+      },
+      {
+        key: "style.padding",
+        label: "Padding",
+        type: "text",
+        group: "layout",
+        placeholder: "e.g. 16px",
+      },
+      {
+        key: "style.borderRadius",
+        label: "Border Radius",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. 4px",
+      },
+    ],
+  },
+  {
+    type: "code-inline",
+    label: "Inline Code",
+    icon: "code",
+    category: "content",
+    description: "Inline code snippet",
+    defaultProps: {
+      code: "const x = 1;",
+    },
+    acceptsChildren: false,
+    properties: [
+      {
+        key: "code",
+        label: "Code",
+        type: "text",
+        defaultValue: "const x = 1;",
+        group: "content",
+        placeholder: "Enter code...",
+      },
+      {
+        key: "style.backgroundColor",
+        label: "Background",
+        type: "color",
+        group: "style",
+      },
+      {
+        key: "style.color",
+        label: "Text Color",
+        type: "color",
+        group: "style",
+      },
+      {
+        key: "style.fontFamily",
+        label: "Font Family",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. 'Courier New', monospace",
+      },
+      {
+        key: "style.fontSize",
+        label: "Font Size",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. 14px",
+      },
+      {
+        key: "style.padding",
+        label: "Padding",
+        type: "text",
+        group: "layout",
+        placeholder: "e.g. 2px 4px",
+      },
+      {
+        key: "style.borderRadius",
+        label: "Border Radius",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. 3px",
+      },
+    ],
+  },
+  {
+    type: "markdown",
+    label: "Markdown",
+    icon: "file-text",
+    category: "content",
+    description: "Markdown content renderer",
+    defaultProps: {
+      content: "# Hello World\n\nThis is **markdown** content.",
+    },
+    acceptsChildren: false,
+    properties: [
+      {
+        key: "content",
+        label: "Markdown Content",
+        type: "textarea",
+        defaultValue: "# Hello World\n\nThis is **markdown** content.",
+        group: "content",
+        placeholder: "Enter markdown...",
+      },
+      {
+        key: "style.color",
+        label: "Text Color",
+        type: "color",
+        group: "style",
+      },
+      {
+        key: "style.fontSize",
+        label: "Font Size",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. 16px",
+      },
+      {
+        key: "style.fontFamily",
+        label: "Font Family",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. Arial, sans-serif",
+      },
+      {
+        key: "style.lineHeight",
+        label: "Line Height",
+        type: "text",
+        group: "style",
+        placeholder: "e.g. 1.6",
+      },
+    ],
+  },
+  {
+    type: "html",
+    label: "Raw HTML",
+    description: "Embed any custom HTML markup directly into the email.",
+    icon: "code-xml",
+    category: "content",
+    defaultProps: {
+      content: '<a href="https://example.com">Click here</a>',
+    },
+    acceptsChildren: false,
+    properties: [
+      {
+        key: "content",
+        label: "HTML",
+        type: "textarea",
+        defaultValue: '<a href="https://example.com">Click here</a>',
+        group: "content",
+        placeholder: "Enter any valid HTML…",
+      },
+    ],
+  },
 ];
+// Note: "font", "preview", and "tailwind" are intentionally excluded from the
+// component palette — they are document-level settings in Document Settings.
 
-/** Default component registry with all built-in components */
-export const defaultRegistry: ComponentRegistry = createRegistry(defaultDefinitions);
+const CLASS_NAME_PROP = {
+  key: "className",
+  label: "CSS Classes",
+  type: "text" as const,
+  group: "style" as const,
+  placeholder: "e.g. bg-blue-500 text-white rounded (requires Tailwind wrapper)",
+};
 
-/** Get all component definitions grouped by category */
+export const defaultRegistry: ComponentRegistry = createRegistry(
+  defaultDefinitions.map((def) => ({
+    ...def,
+    properties: [...def.properties, CLASS_NAME_PROP],
+  })),
+);
+
 export function getComponentsByCategory(
   registry: ComponentRegistry
 ): Record<string, ComponentDefinition[]> {
@@ -541,7 +971,6 @@ export function getComponentsByCategory(
   return result;
 }
 
-/** Get a single component definition by type */
 export function getComponentDef(
   registry: ComponentRegistry,
   type: EmailNodeType

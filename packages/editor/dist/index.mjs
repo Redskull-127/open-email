@@ -17673,9 +17673,7 @@ function CanvasNode({
   const handleNodeClick = (e) => {
     e.stopPropagation();
     selectNode(node.id);
-    if (isInlineEditable) {
-      setEditingNodeId(node.id);
-    } else {
+    if (editingNodeId && editingNodeId !== node.id) {
       setEditingNodeId(null);
     }
   };
@@ -17690,6 +17688,26 @@ function CanvasNode({
       onClick: handleNodeClick,
       ...dragProps
     },
+    isSelected && isInlineEditable && React11.createElement(
+      "button",
+      {
+        type: "button",
+        className: "oe-canvas-node-edit-btn oe-btn oe-btn-xs",
+        onPointerDown: (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        },
+        onClick: (e) => {
+          e.stopPropagation();
+          if (isEditingInline) {
+            setEditingNodeId(null);
+          } else {
+            setEditingNodeId(node.id);
+          }
+        }
+      },
+      isEditingInline ? "Done" : "Edit"
+    ),
     renderContent()
   );
 }

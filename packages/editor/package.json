@@ -1,6 +1,6 @@
 {
   "name": "@open-email/editor",
-  "version": "0.1.49",
+  "version": "0.1.50",
   "description": "Open-source visual email editor built on React Email — shadcn-style customizable components",
   "keywords": [
     "react",
@@ -29,10 +29,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Redskull-127/open-email.git"
+    "url": "git+https://github.com/trysurface/open-email.git"
   },
-  "author": "Meer Tarbani <admin@meertarbani.in>",
-  "homepage": "https://github.com/Redskull-127/open-email/tree/main/packages/editor#readme",
+  "author": "Meer Tarbani <meer.tarbani@withsurface.com>",
+  "homepage": "https://github.com/trysurface/open-email",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"

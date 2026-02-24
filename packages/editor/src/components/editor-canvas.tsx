@@ -613,24 +613,16 @@ function getEmptyLabel(type: string): string {
 function VisualCanvas() {
     const { document, selectNode } = useEditor();
     const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
-    const tailwindEnabled = document.meta.tailwind?.enabled ?? false;
     const tailwindConfig = document.meta.tailwind?.config;
 
     // Re-scan when the document body changes so newly-added or updated
-    // components with Tailwind classes get styled without a manual toggle.
+    // components with Tailwind classes get styled without a manual refresh.
     useEffect(() => {
-        if (tailwindEnabled) {
-            (window as any).tailwind?.scan?.();
-        }
-    }, [document.body, tailwindEnabled]);
+        (window as any).tailwind?.scan?.();
+    }, [document.body]);
 
     useEffect(() => {
         const SCRIPT_ID = "oe-tailwind-cdn";
-
-        if (!tailwindEnabled) {
-            window.document.getElementById(SCRIPT_ID)?.remove();
-            return;
-        }
 
         // Build merged config with preflight disabled so Tailwind doesn't reset
         // the editor's own CSS while still applying utility classes.
@@ -671,7 +663,7 @@ function VisualCanvas() {
                 }, { once: true });
             }
         }
-    }, [tailwindEnabled, tailwindConfig]);
+    }, [tailwindConfig]);
 
     const handleCanvasClick = useCallback((e: React.MouseEvent) => {
         if ((e.target as HTMLElement).closest("a")) e.preventDefault();

@@ -90,6 +90,12 @@ export function PropertiesPanel({ className, registry }: PropertiesPanelProps) {
     return grouped;
   }, [definition?.properties]);
 
+  const fontFamilyOptions = useMemo(
+    () =>
+      [...new Set((emailDocument.meta.fonts ?? []).map((font) => font.fontFamily?.trim()).filter((font): font is string => !!font))],
+    [emailDocument.meta.fonts],
+  );
+
   const handleMetaChange = useCallback(
     (update: Partial<typeof emailDocument.meta>) => {
       updateDocumentMeta(update);
@@ -135,6 +141,7 @@ export function PropertiesPanel({ className, registry }: PropertiesPanelProps) {
           properties: groups[group],
           nodeProps: selectedNode.props ?? {},
           onChange: handlePropertyChange,
+          fontFamilyOptions,
         }),
       ),
   );

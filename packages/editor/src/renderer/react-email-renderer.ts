@@ -94,13 +94,13 @@ function resolveProps(props: Record<string, unknown>): Record<string, unknown> {
     return resolved;
 }
 type RenderContext = {
-  variableData?: Record<string, string>;
-  variableDefinitions?: Record<string, { fallback: string }>;
+    variableData?: Record<string, string>;
+    variableDefinitions?: Record<string, { fallback: string }>;
 };
 
 function interpolate(ctx: RenderContext, value: string | undefined): string {
-  if (value == null) return "";
-  return interpolateVariables(value, ctx.variableData, ctx.variableDefinitions);
+    if (value == null) return "";
+    return interpolateVariables(value, ctx.variableData, ctx.variableDefinitions);
 }
 
 function renderNode(node: EmailNode, ctx: RenderContext): React.ReactNode {
@@ -148,10 +148,10 @@ function renderNode(node: EmailNode, ctx: RenderContext): React.ReactNode {
         const { style, ...markdownProps } = restProps as any;
         return React.createElement(
             Component,
-            { 
-                key: node.id, 
+            {
+                key: node.id,
                 markdownContainerStyles: style,
-                ...markdownProps 
+                ...markdownProps
             },
             interpolate(ctx, content as string | undefined) || ""
         );
@@ -169,12 +169,12 @@ function renderNode(node: EmailNode, ctx: RenderContext): React.ReactNode {
         const { language, theme, ...codeBlockProps } = resolvedProps as any;
         return React.createElement(
             Component,
-            { 
-                key: node.id, 
+            {
+                key: node.id,
                 code: interpolate(ctx, code as string | undefined) || "",
                 language: language || "text",
                 theme: theme || xonokai,
-                ...codeBlockProps 
+                ...codeBlockProps
             }
         );
     }
@@ -248,7 +248,17 @@ function renderNode(node: EmailNode, ctx: RenderContext): React.ReactNode {
     if (node.type === "row") {
         const { style, ...otherProps } = resolvedProps as any;
         const gap = style?.gap;
-        let children: React.ReactNode[] = node.children.map((c) => renderNode(c, ctx));
+        let children: React.ReactNode[] = node.children.map((childNode) => {
+            const renderedChild = renderNode(childNode, ctx);
+            if (childNode.type === "column") {
+                return renderedChild;
+            }
+            return React.createElement(
+                Column,
+                { key: `auto-column-${childNode.id}` },
+                renderedChild
+            );
+        });
 
         if (gap) {
             const gapValue = parseInt((gap as string).replace("px", ""), 10);

@@ -16533,7 +16533,17 @@ function renderNode(node, ctx) {
   if (node.type === "row") {
     const { style, ...otherProps } = resolvedProps;
     const gap = style?.gap;
-    let children = node.children.map((c) => renderNode(c, ctx));
+    let children = node.children.map((childNode) => {
+      const renderedChild = renderNode(childNode, ctx);
+      if (childNode.type === "column") {
+        return renderedChild;
+      }
+      return import_react3.default.createElement(
+        import_components.Column,
+        { key: `auto-column-${childNode.id}` },
+        renderedChild
+      );
+    });
     if (gap) {
       const gapValue = parseInt(gap.replace("px", ""), 10);
       if (!isNaN(gapValue) && gapValue > 0) {
@@ -16610,21 +16620,19 @@ function renderToReactEmail(document2, variableData) {
 async function renderToHTML(document2, variableData) {
   const element = renderToReactEmail(document2, variableData);
   let html = await (0, import_render.render)(element);
-  if (document2.meta.tailwind?.enabled) {
-    let mergedConfig = { corePlugins: { preflight: false } };
-    if (document2.meta.tailwind.config) {
-      try {
-        const userConfig = JSON.parse(document2.meta.tailwind.config);
-        mergedConfig = {
-          ...userConfig,
-          corePlugins: { ...userConfig.corePlugins ?? {}, preflight: false }
-        };
-      } catch {
-      }
+  let mergedConfig = { corePlugins: { preflight: false } };
+  if (document2.meta.tailwind?.config) {
+    try {
+      const userConfig = JSON.parse(document2.meta.tailwind.config);
+      mergedConfig = {
+        ...userConfig,
+        corePlugins: { ...userConfig.corePlugins ?? {}, preflight: false }
+      };
+    } catch {
     }
-    const injection = `<script src="https://cdn.tailwindcss.com"></script><script>tailwind.config=${JSON.stringify(mergedConfig)}</script>`;
-    html = html.replace("</head>", `${injection}</head>`);
   }
+  const injection = `<script src="https://cdn.tailwindcss.com"></script><script>tailwind.config=${JSON.stringify(mergedConfig)}</script>`;
+  html = html.replace("</head>", `${injection}</head>`);
   return html;
 }
 async function renderToPlainText(document2, variableData) {
@@ -17749,19 +17757,12 @@ function getEmptyLabel(type) {
 function VisualCanvas() {
   const { document: document2, selectNode } = useEditor();
   const [editingNodeId, setEditingNodeId] = (0, import_react11.useState)(null);
-  const tailwindEnabled = document2.meta.tailwind?.enabled ?? false;
   const tailwindConfig = document2.meta.tailwind?.config;
   (0, import_react11.useEffect)(() => {
-    if (tailwindEnabled) {
-      window.tailwind?.scan?.();
-    }
-  }, [document2.body, tailwindEnabled]);
+    window.tailwind?.scan?.();
+  }, [document2.body]);
   (0, import_react11.useEffect)(() => {
     const SCRIPT_ID = "oe-tailwind-cdn";
-    if (!tailwindEnabled) {
-      window.document.getElementById(SCRIPT_ID)?.remove();
-      return;
-    }
     let mergedConfig = { corePlugins: { preflight: false } };
     if (tailwindConfig) {
       try {
@@ -17794,7 +17795,7 @@ function VisualCanvas() {
         }, { once: true });
       }
     }
-  }, [tailwindEnabled, tailwindConfig]);
+  }, [tailwindConfig]);
   const handleCanvasClick = (0, import_react11.useCallback)((e) => {
     if (e.target.closest("a")) e.preventDefault();
     setEditingNodeId(null);
@@ -18076,15 +18077,9 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
     },
     [onMetaChange]
   );
-  const handleTailwindToggle = (0, import_react12.useCallback)(
-    (e) => {
-      onMetaChange?.({ tailwind: { ...meta?.tailwind ?? {}, enabled: e.target.checked } });
-    },
-    [onMetaChange, meta?.tailwind]
-  );
   const handleTailwindConfig = (0, import_react12.useCallback)(
     (e) => {
-      onMetaChange?.({ tailwind: { enabled: meta?.tailwind?.enabled ?? true, config: e.target.value } });
+      onMetaChange?.({ tailwind: { ...meta?.tailwind ?? {}, enabled: true, config: e.target.value } });
     },
     [onMetaChange, meta?.tailwind]
   );
@@ -18123,7 +18118,6 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
       return next;
     });
   }, []);
-  const tailwindEnabled = meta?.tailwind?.enabled ?? true;
   const fonts = meta?.fonts ?? [];
   return import_react12.default.createElement(
     "div",
@@ -18218,18 +18212,9 @@ function PropertiesPanelEmpty({ className, meta, onMetaChange }) {
       import_react12.default.createElement(
         "div",
         { className: "oe-field" },
-        import_react12.default.createElement(
-          "label",
-          { className: "oe-field-label oe-field-label-row" },
-          import_react12.default.createElement("input", {
-            type: "checkbox",
-            checked: tailwindEnabled,
-            onChange: handleTailwindToggle
-          }),
-          "Enable Tailwind CSS"
-        )
+        import_react12.default.createElement("p", { className: "oe-properties-empty-hint" }, "Tailwind CSS is always enabled.")
       ),
-      tailwindEnabled && import_react12.default.createElement(
+      import_react12.default.createElement(
         "div",
         { className: "oe-field" },
         import_react12.default.createElement("label", { className: "oe-field-label" }, "Theme Config (JSON)"),
@@ -18483,7 +18468,7 @@ var import_react16 = __toESM(require("react"));
 
 // src/components/properties-panel/property-field.tsx
 var import_react15 = __toESM(require("react"));
-function PropertyField({ schema, value, onChange }) {
+function PropertyField({ schema, value, onChange, fontFamilyOptions = [] }) {
   const handleChange = (0, import_react15.useCallback)(
     (e) => {
       let newValue = e.target.value;
@@ -18497,6 +18482,8 @@ function PropertyField({ schema, value, onChange }) {
     [schema.key, schema.type, onChange]
   );
   const stringValue = value !== void 0 && value !== null ? String(value) : "";
+  const isFontFamilyField = schema.key === "fontFamily" || schema.key === "style.fontFamily";
+  const fontFamilyListId = isFontFamilyField ? `oe-font-family-options-${schema.key.replace(/\W+/g, "-")}` : void 0;
   switch (schema.type) {
     case "textarea":
       return import_react15.default.createElement(
@@ -18625,8 +18612,19 @@ function PropertyField({ schema, value, onChange }) {
           className: "oe-field-input",
           value: stringValue,
           onChange: handleChange,
-          placeholder: schema.placeholder ?? ""
-        })
+          placeholder: schema.placeholder ?? "",
+          ...isFontFamilyField && fontFamilyOptions.length > 0 && fontFamilyListId ? { list: fontFamilyListId } : {}
+        }),
+        isFontFamilyField && fontFamilyOptions.length > 0 && fontFamilyListId && import_react15.default.createElement(
+          "datalist",
+          { id: fontFamilyListId },
+          ...fontFamilyOptions.map(
+            (fontFamily) => import_react15.default.createElement("option", {
+              key: fontFamily,
+              value: fontFamily
+            })
+          )
+        )
       );
   }
 }
@@ -18636,7 +18634,8 @@ function PropertiesGroup({
   group,
   properties,
   nodeProps,
-  onChange
+  onChange,
+  fontFamilyOptions
 }) {
   return import_react16.default.createElement(
     "div",
@@ -18651,7 +18650,8 @@ function PropertiesGroup({
         key: prop.key,
         schema: prop,
         value: resolveValue(nodeProps, prop.key),
-        onChange
+        onChange,
+        fontFamilyOptions
       })
     )
   );
@@ -18721,6 +18721,10 @@ function PropertiesPanel({ className, registry }) {
     }
     return grouped;
   }, [definition?.properties]);
+  const fontFamilyOptions = (0, import_react17.useMemo)(
+    () => [...new Set((emailDocument.meta.fonts ?? []).map((font) => font.fontFamily?.trim()).filter((font) => !!font))],
+    [emailDocument.meta.fonts]
+  );
   const handleMetaChange = (0, import_react17.useCallback)(
     (update) => {
       updateDocumentMeta(update);
@@ -18757,7 +18761,8 @@ function PropertiesPanel({ className, registry }) {
         group,
         properties: groups[group],
         nodeProps: selectedNode.props ?? {},
-        onChange: handlePropertyChange
+        onChange: handlePropertyChange,
+        fontFamilyOptions
       })
     )
   );
@@ -19026,12 +19031,6 @@ function getAISchema(registry) {
         { key: "subject", label: "Email Subject", type: "text" },
         { key: "previewText", label: "Preview Text (shown in inbox)", type: "text" },
         { key: "description", label: "Internal description", type: "textarea" },
-        {
-          key: "tailwind.enabled",
-          label: "Enable Tailwind CSS",
-          type: "boolean",
-          defaultValue: true
-        },
         {
           key: "tailwind.config",
           label: "Tailwind theme config (JSON string)",

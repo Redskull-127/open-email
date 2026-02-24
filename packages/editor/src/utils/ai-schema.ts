@@ -76,12 +76,6 @@ export function getAISchema(registry?: ComponentRegistry): AIDocumentSchema {
         { key: "previewText", label: "Preview Text (shown in inbox)", type: "text" },
         { key: "description", label: "Internal description", type: "textarea" },
         {
-          key: "tailwind.enabled",
-          label: "Enable Tailwind CSS",
-          type: "boolean",
-          defaultValue: true,
-        },
-        {
           key: "tailwind.config",
           label: "Tailwind theme config (JSON string)",
           type: "textarea",

@@ -195,16 +195,9 @@ export function PropertiesPanelEmpty({ className, meta, onMetaChange }: Properti
     [onMetaChange],
   );
 
-  const handleTailwindToggle = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      onMetaChange?.({ tailwind: { ...(meta?.tailwind ?? {}), enabled: e.target.checked } });
-    },
-    [onMetaChange, meta?.tailwind],
-  );
-
   const handleTailwindConfig = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      onMetaChange?.({ tailwind: { enabled: meta?.tailwind?.enabled ?? true, config: e.target.value } });
+      onMetaChange?.({ tailwind: { ...(meta?.tailwind ?? {}), enabled: true, config: e.target.value } });
     },
     [onMetaChange, meta?.tailwind],
   );
@@ -245,7 +238,6 @@ export function PropertiesPanelEmpty({ className, meta, onMetaChange }: Properti
     });
   }, []);
 
-  const tailwindEnabled = meta?.tailwind?.enabled ?? true;
   const fonts = meta?.fonts ?? [];
 
   return React.createElement(
@@ -345,30 +337,20 @@ export function PropertiesPanelEmpty({ className, meta, onMetaChange }: Properti
       React.createElement(
         "div",
         { className: "oe-field" },
-        React.createElement(
-          "label",
-          { className: "oe-field-label oe-field-label-row" },
-          React.createElement("input", {
-            type: "checkbox",
-            checked: tailwindEnabled,
-            onChange: handleTailwindToggle,
-          }),
-          "Enable Tailwind CSS",
-        ),
+        React.createElement("p", { className: "oe-properties-empty-hint" }, "Tailwind CSS is always enabled."),
       ),
-      tailwindEnabled &&
-        React.createElement(
-          "div",
-          { className: "oe-field" },
-          React.createElement("label", { className: "oe-field-label" }, "Theme Config (JSON)"),
-          React.createElement("textarea", {
-            className: "oe-field-input oe-field-textarea oe-field-mono",
-            placeholder: '{"theme": {"extend": {"colors": {"brand": "#007291"}}}}',
-            rows: 4,
-            value: meta?.tailwind?.config ?? "",
-            onChange: handleTailwindConfig,
-          }),
-        ),
+      React.createElement(
+        "div",
+        { className: "oe-field" },
+        React.createElement("label", { className: "oe-field-label" }, "Theme Config (JSON)"),
+        React.createElement("textarea", {
+          className: "oe-field-input oe-field-textarea oe-field-mono",
+          placeholder: '{"theme": {"extend": {"colors": {"brand": "#007291"}}}}',
+          rows: 4,
+          value: meta?.tailwind?.config ?? "",
+          onChange: handleTailwindConfig,
+        }),
+      ),
     ),
   );
 }

@@ -5,9 +5,10 @@ export interface PropertyFieldProps {
   schema: PropertySchema;
   value: unknown;
   onChange: (key: string, value: unknown) => void;
+  fontFamilyOptions?: string[];
 }
 
-export function PropertyField({ schema, value, onChange }: PropertyFieldProps) {
+export function PropertyField({ schema, value, onChange, fontFamilyOptions = [] }: PropertyFieldProps) {
   const handleChange = useCallback(
     (
       e: React.ChangeEvent<
@@ -29,6 +30,8 @@ export function PropertyField({ schema, value, onChange }: PropertyFieldProps) {
 
   const stringValue =
     value !== undefined && value !== null ? String(value) : "";
+  const isFontFamilyField = schema.key === "fontFamily" || schema.key === "style.fontFamily";
+  const fontFamilyListId = isFontFamilyField ? `oe-font-family-options-${schema.key.replace(/\W+/g, "-")}` : undefined;
 
   switch (schema.type) {
     case "textarea":
@@ -164,7 +167,21 @@ export function PropertyField({ schema, value, onChange }: PropertyFieldProps) {
           value: stringValue,
           onChange: handleChange,
           placeholder: schema.placeholder ?? "",
+          ...(isFontFamilyField && fontFamilyOptions.length > 0 && fontFamilyListId ? { list: fontFamilyListId } : {}),
         }),
+        isFontFamilyField &&
+          fontFamilyOptions.length > 0 &&
+          fontFamilyListId &&
+          React.createElement(
+            "datalist",
+            { id: fontFamilyListId },
+            ...fontFamilyOptions.map((fontFamily) =>
+              React.createElement("option", {
+                key: fontFamily,
+                value: fontFamily,
+              }),
+            ),
+          ),
       );
   }
 }

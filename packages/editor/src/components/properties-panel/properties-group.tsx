@@ -8,6 +8,7 @@ export interface PropertiesGroupProps {
   properties: PropertySchema[];
   nodeProps: Record<string, unknown>;
   onChange: (key: string, value: unknown) => void;
+  fontFamilyOptions?: string[];
 }
 
 export function PropertiesGroup({
@@ -15,6 +16,7 @@ export function PropertiesGroup({
   properties,
   nodeProps,
   onChange,
+  fontFamilyOptions,
 }: PropertiesGroupProps) {
   return React.createElement(
     "div",
@@ -30,6 +32,7 @@ export function PropertiesGroup({
         schema: prop,
         value: resolveValue(nodeProps, prop.key),
         onChange,
+        fontFamilyOptions,
       }),
     ),
   );

@@ -15061,7 +15061,17 @@ function renderNode(node, ctx) {
   if (node.type === "row") {
     const { style, ...otherProps } = resolvedProps;
     const gap = style?.gap;
-    let children = node.children.map((c) => renderNode(c, ctx));
+    let children = node.children.map((childNode) => {
+      const renderedChild = renderNode(childNode, ctx);
+      if (childNode.type === "column") {
+        return renderedChild;
+      }
+      return import_react.default.createElement(
+        import_components.Column,
+        { key: `auto-column-${childNode.id}` },
+        renderedChild
+      );
+    });
     if (gap) {
       const gapValue = parseInt(gap.replace("px", ""), 10);
       if (!isNaN(gapValue) && gapValue > 0) {
@@ -15138,21 +15148,19 @@ function renderToReactEmail(document2, variableData) {
 async function renderToHTML(document2, variableData) {
   const element = renderToReactEmail(document2, variableData);
   let html = await (0, import_render.render)(element);
-  if (document2.meta.tailwind?.enabled) {
-    let mergedConfig = { corePlugins: { preflight: false } };
-    if (document2.meta.tailwind.config) {
-      try {
-        const userConfig = JSON.parse(document2.meta.tailwind.config);
-        mergedConfig = {
-          ...userConfig,
-          corePlugins: { ...userConfig.corePlugins ?? {}, preflight: false }
-        };
-      } catch {
-      }
+  let mergedConfig = { corePlugins: { preflight: false } };
+  if (document2.meta.tailwind?.config) {
+    try {
+      const userConfig = JSON.parse(document2.meta.tailwind.config);
+      mergedConfig = {
+        ...userConfig,
+        corePlugins: { ...userConfig.corePlugins ?? {}, preflight: false }
+      };
+    } catch {
     }
-    const injection = `<script src="https://cdn.tailwindcss.com"></script><script>tailwind.config=${JSON.stringify(mergedConfig)}</script>`;
-    html = html.replace("</head>", `${injection}</head>`);
   }
+  const injection = `<script src="https://cdn.tailwindcss.com"></script><script>tailwind.config=${JSON.stringify(mergedConfig)}</script>`;
+  html = html.replace("</head>", `${injection}</head>`);
   return html;
 }
 async function renderToPlainText(document2, variableData) {
@@ -16333,12 +16341,6 @@ function getAISchema(registry) {
         { key: "subject", label: "Email Subject", type: "text" },
         { key: "previewText", label: "Preview Text (shown in inbox)", type: "text" },
         { key: "description", label: "Internal description", type: "textarea" },
-        {
-          key: "tailwind.enabled",
-          label: "Enable Tailwind CSS",
-          type: "boolean",
-          defaultValue: true
-        },
         {
           key: "tailwind.config",
           label: "Tailwind theme config (JSON string)",
